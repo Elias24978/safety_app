@@ -7,8 +7,8 @@ plugins {
 
 android {
     namespace = "com.example.safety_app"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973" // <--- AÑADE ESTA LÍNEA
+    compileSdk = 35
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

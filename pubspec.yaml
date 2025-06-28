@@ -62,7 +62,7 @@ flutter:
   # Para declarar nuestros assets (archivos, imágenes, etc.)
   # Añade esta sección completa:
   assets:
-    - assets/images
+    - assets/images/
     - .env
 
   # To add assets to your application, add an assets section, like this:
