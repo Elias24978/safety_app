@@ -1,10 +1,15 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:safety_app/screens/splash_screen.dart'; // Asegúrate de que este import esté aquí
+import 'package:safety_app/firebase_options.dart';
+import 'package:safety_app/screens/splash_screen.dart'; // Solo necesita conocer el Splash
 
-Future<void> main() async {
-  // Esta parte ya la teníamos, se asegura de cargar el .env
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -14,13 +19,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Safety App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        useMaterial3: true,
       ),
-      debugShowCheckedModeBanner: false,
-      // Le decimos que la primera pantalla es la del logo
+      // La app SIEMPRE arranca en la SplashScreen
       home: const SplashScreen(),
     );
   }
