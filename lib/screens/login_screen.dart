@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:safety_app/screens/register_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -9,107 +10,121 @@ class LoginScreen extends StatelessWidget {
       resizeToAvoidBottomInset: false, // Evita que el teclado redimensione todo
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // Añadimos la flecha de "atrás" automáticamente
+        // La flecha de "atrás" para volver a la WelcomeScreen
         elevation: 0,
         backgroundColor: Colors.white,
         leading: IconButton(
           onPressed: () {
-            // Este comando cierra la pantalla actual y vuelve a la anterior
             Navigator.pop(context);
           },
-          icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios,
+              size: 20, color: Colors.black),
         ),
       ),
-      body: Container(
+      body: SizedBox(
         height: MediaQuery.of(context).size.height,
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween, // Distribuye el espacio
-          children: <Widget>[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                // Textos de bienvenida basados en tu diseño
-                const Text(
-                  "¡Bienvenido de nuevo!",
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "Qué gusto verte. ¡De nuevo!",
-                  style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-                ),
-                const SizedBox(height: 40),
-
-                // Campo para el correo
-                const TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Ingresa tu email',
-                    contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40.0),
+          child: Column(
+            // Alinea el contenido verticalmente
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: <Widget>[
+              // Columna para los textos de bienvenida
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    "¡Bienvenido de nuevo!",
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Campo para la contraseña
-                const TextField(
-                  obscureText: true, // Para ocultar la contraseña
-                  decoration: InputDecoration(
-                    labelText: 'Ingresa tu contraseña',
-                    contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-                    // Añadiremos el ícono del ojo más adelante
+                  const SizedBox(height: 10),
+                  Text(
+                    "Qué gusto verte. ¡De nuevo!",
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey[700],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                // Texto para "¿Olvidaste tu contraseña?"
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    "¿Olvidaste tu contraseña?",
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
-
-            // Botón de Login
-            MaterialButton(
-              minWidth: double.infinity,
-              height: 60,
-              onPressed: () {}, // La lógica de Firebase irá aquí
-              color: const Color(0xff2A2A2A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(50),
+                ],
               ),
-              child: const Text(
-                "Login",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
 
-            // Textos finales de la pantalla
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text("¿No tienes una cuenta?"),
-                Text(
-                  " Regístrate ahora",
+              // Columna para los campos de texto y el botón
+              Column(
+                children: <Widget>[
+                  const TextField(
+                    decoration: InputDecoration(labelText: "Ingresa tu email"),
+                  ),
+                  const SizedBox(height: 20),
+                  const TextField(
+                    obscureText: true, // Para ocultar la contraseña
+                    decoration: InputDecoration(labelText: "Ingresa tu contraseña"),
+                  ),
+                  const SizedBox(height: 10),
+                  // Texto de "¿Olvidaste tu contraseña?"
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      "¿Olvidaste tu contraseña?",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Botón de Login
+              MaterialButton(
+                minWidth: double.infinity,
+                height: 60,
+                onPressed: () {
+                  // La lógica de Firebase irá aquí más adelante
+                },
+                color: const Color(0xff2A2A2A),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: const Text(
+                  "Login",
                   style: TextStyle(
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    fontSize: 18,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 30), // Espacio al final
-          ],
+              ),
+
+              // Texto para ir a la pantalla de Registro
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  const Text("¿No tienes una cuenta?"),
+                  GestureDetector(
+                    onTap: () {
+                      // Navegamos a la pantalla de Registro
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                      );
+                    },
+                    child: const Text(
+                      " Regístrate ahora",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
