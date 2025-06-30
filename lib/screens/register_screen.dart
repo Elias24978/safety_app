@@ -1,7 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:safety_app/screens/login_screen.dart';
 import 'package:safety_app/screens/menu_screen.dart';
+import 'package:safety_app/services/auth_service.dart'; // Importamos nuestro nuevo servicio
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -11,194 +10,130 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // --- CAMBIO: Añadimos un controlador para el nombre ---
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  // Clave para identificar y validar nuestro formulario.
+  final _formKey = GlobalKey<FormState>();
 
-  bool _isPasswordObscured = true;
-  bool _isConfirmPasswordObscured = true;
+  // Controladores para obtener el texto de los campos.
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
-  // --- CAMBIO: Actualizamos la función de registro ---
-  Future<void> signUp() async {
-    final navigator = Navigator.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
+  // Instancia de nuestro servicio de autenticación.
+  final AuthService _authService = AuthService();
 
-    // Validación 1: Campos vacíos (incluyendo el nuevo campo de usuario)
-    if (_usernameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty || _confirmPasswordController.text.isEmpty) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, rellena todos los campos.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+  // Variable de estado para controlar la visualización del indicador de carga.
+  bool _isLoading = false;
 
-    if (_passwordController.text != _confirmPasswordController.text) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Las contraseñas no coinciden.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+  @override
+  void dispose() {
+    // Es una buena práctica limpiar los controladores cuando el widget se destruye.
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
-    try {
-      // 1. Creamos el usuario con email y contraseña
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+  /// Método que se encarga de orquestar el proceso de registro.
+  Future<void> _registerUser() async {
+    // Si ya estamos cargando, no hacemos nada para evitar múltiples clics.
+    if (_isLoading) return;
+
+    // Valida el formulario usando la _formKey.
+    if (_formKey.currentState?.validate() ?? false) {
+      // Si el formulario es válido, activamos el estado de carga.
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Llamamos a nuestro servicio para crear el usuario.
+      final String? errorMessage = await _authService.createUser(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // 2. Si se crea correctamente, actualizamos su perfil con el nombre
-      if (userCredential.user != null) {
-        await userCredential.user!.updateDisplayName(_usernameController.text.trim());
+      // Una vez que tenemos respuesta, desactivamos el estado de carga.
+      // Es crucial poner esta línea aquí para que el spinner desaparezca
+      // tanto si hay éxito como si hay error.
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Verificamos el resultado.
+      if (errorMessage == null) {
+        // Éxito: Navegamos a la pantalla del menú.
+        if (mounted) { // Verificamos que el widget siga en pantalla.
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const MenuScreen()),
+          );
+        }
+      } else {
+        // Error: Mostramos el mensaje de error en un SnackBar.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-
-      if (!mounted) return;
-      navigator.pushReplacement(
-        MaterialPageRoute(builder: (_) => const MenuScreen()),
-      );
-
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = "Error: Revisa tus datos e inténtalo de nuevo.";
-      if (e.code == 'weak-password') {
-        errorMessage = 'La contraseña es muy débil (mín. 6 caracteres).';
-      } else if (e.code == 'email-already-in-use') {
-        errorMessage = 'Este correo electrónico ya está registrado.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'El formato del correo electrónico no es válido.';
-      } else if (e.code == 'network-request-failed') {
-        errorMessage = 'No hay conexión a internet. Por favor, revisa tu red.';
-      }
-
-      if (!mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
-  }
-
-  @override
-  void dispose() {
-    _usernameController.dispose(); // No olvidar el nuevo controlador
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.black),
-        ),
+        title: const Text('Registro de Usuario'),
       ),
-      body: SingleChildScrollView(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          width: double.infinity,
-          child: Column(
-            children: <Widget>[
-              const Column(
-                children: <Widget>[
-                  Text("Regístrate", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 10),
-                  Text("Crea una cuenta, es gratis", style: TextStyle(fontSize: 15, color: Colors.grey)),
-                ],
-              ),
-              const SizedBox(height: 40),
-              Column(
-                children: <Widget>[
-                  // --- CAMBIO: Campo de texto para el nombre de usuario ---
-                  TextField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(labelText: 'Nombre de Usuario'),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _isPasswordObscured,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña (mín. 6 caracteres)',
-                      suffixIcon: IconButton(
-                        icon: Icon(_isPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordObscured = !_isPasswordObscured;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _confirmPasswordController,
-                    obscureText: _isConfirmPasswordObscured,
-                    decoration: InputDecoration(
-                      labelText: 'Confirmar Contraseña',
-                      suffixIcon: IconButton(
-                        icon: Icon(_isConfirmPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _isConfirmPasswordObscured = !_isConfirmPasswordObscured;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 40),
-              MaterialButton(
-                minWidth: double.infinity,
-                height: 60,
-                onPressed: signUp,
-                color: const Color(0xff2A2A2A),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                child: const Text(
-                  "Registrarse",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(labelText: 'Correo Electrónico'),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor, ingresa un correo.';
+                    }
+                    if (!value.contains('@') || !value.contains('.')) {
+                      return 'Por favor, ingresa un correo válido.';
+                    }
+                    return null;
+                  },
                 ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  const Text("¿Ya tienes una cuenta?"),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                    },
-                    child: const Text(
-                      " Inicia sesión",
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.blue),
-                    ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor, ingresa una contraseña.';
+                    }
+                    if (value.length < 6) {
+                      return 'La contraseña debe tener al menos 6 caracteres.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton(
+                  onPressed: _registerUser,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50), // Botón ancho
                   ),
-                ],
-              ),
-            ],
+                  // Mostramos el spinner si está cargando, o el texto si no.
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Registrar'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
