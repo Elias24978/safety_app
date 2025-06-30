@@ -10,7 +10,8 @@ plugins {
 
 android {
     namespace = "com.example.safety_app"
-    ndkVersion = "27.0.12077973" // <--- AÑADE ESTA LÍNEA
+    // Mantengo esta línea que añadiste, no afecta la solución.
+    ndkVersion = "27.0.12077973"
     compileSdk = 35
 
     compileOptions {
@@ -19,24 +20,20 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.safety_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        // ----- ¡ESTA ES LA LÍNEA CORREGIDA! -----
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
