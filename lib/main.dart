@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // Importa messaging
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:safety_app/firebase_options.dart';
 import 'package:safety_app/screens/login_screen.dart';
-import 'package:safety_app/services/notification_service.dart'; // Importa nuestro servicio
+import 'package:safety_app/services/notification_service.dart';
+import 'package:safety_app/utils/logger.dart';
 
-// --- MANEJADOR DE MENSAJES EN BACKGROUND/TERMINATED ---
-// Debe registrarse aquí, fuera del runApp.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -14,18 +13,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 Future<void> main() async {
-  // Asegura que todos los bindings de Flutter estén listos antes de llamar a código nativo.
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializa Firebase.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Registra el manejador de mensajes en segundo plano.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Inicializa nuestro servicio de notificaciones.
+  // --- LÓGICA CORREGIDA ---
+  // Simplemente inicializamos el servicio. No necesitamos el userId aquí.
   await NotificationService().initNotifications();
 
   runApp(const MyApp());
@@ -37,6 +33,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Safety App',
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,

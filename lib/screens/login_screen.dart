@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:safety_app/screens/menu_screen.dart';
 import 'package:safety_app/screens/register_screen.dart';
-import 'package:safety_app/services/auth_service.dart'; // Importamos nuestro servicio
+import 'package:safety_app/services/auth_service.dart';
+import 'package:safety_app/services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +25,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  /// Método que se encarga de orquestar el proceso de inicio de sesión.
   Future<void> _signInUser() async {
     if (_isLoading) return;
     if (_formKey.currentState?.validate() ?? false) {
@@ -35,23 +35,28 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
 
-      setState(() { _isLoading = false; });
+      if (!mounted) return;
 
       if (errorMessage == null) {
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MenuScreen()),
-          );
-        }
+        await NotificationService().saveTokenToDatabase();
+
+        // AÑADIDA: Segunda verificación después del segundo await
+        if (!mounted) return;
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MenuScreen()),
+        );
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+      if (mounted) {
+        setState(() { _isLoading = false; });
       }
     }
   }
@@ -59,9 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inicio de Sesión'),
-      ),
+      appBar: AppBar(title: const Text('Inicio de Sesión')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -106,7 +109,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
-                    // Navega a la pantalla de registro
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => const RegisterScreen()),
                     );
