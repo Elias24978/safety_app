@@ -37,14 +37,33 @@ dependencies:
   flutter_dotenv: ^5.1.0
   google_maps_flutter: ^2.6.1
   geolocator: ^12.0.0
-  firebase_core: ^3.1.1
   firebase_auth: ^5.1.1
   font_awesome_flutter: ^10.7.0
 
+  # Para Notificaciones Push
+  firebase_core: ^3.1.1
+  firebase_messaging: ^15.0.1
+
+    # Para mostrar notificaciones con la app en primer plano
+  flutter_local_notifications: ^17.2.1
+
+    # Para manejar el contador en el ícono de la app
+  flutter_app_badger: ^1.5.0
+
+    # Para almacenamiento local persistente de notificaciones
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.3
+  intl: ^0.19.0
+  logging: ^1.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Generador de código para Hive
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.10
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
