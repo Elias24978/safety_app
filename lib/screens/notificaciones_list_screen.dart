@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:safety_app/models/notification_model.dart';
+import 'package:safety_app/models/app_notification.dart';
 import 'package:intl/intl.dart'; // Añade el paquete intl a tu pubspec.yaml para formatear fechas
 
 class NotificationsListScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class NotificationsListScreen extends StatefulWidget {
 }
 
 class _NotificationsListScreenState extends State<NotificationsListScreen> {
-  final Box<NotificationModel> _notificationBox = Hive.box<NotificationModel>('notifications');
+  final Box<AppNotification> _notificationBox = Hive.box<AppNotification>('notifications');
   final Set<String> _selectedIds = {};
 
   @override
@@ -29,7 +29,7 @@ class _NotificationsListScreenState extends State<NotificationsListScreen> {
       ),
       body: ValueListenableBuilder(
         valueListenable: _notificationBox.listenable(),
-        builder: (context, Box<NotificationModel> box, _) {
+        builder: (context, Box<AppNotification> box, _) {
           final notifications = box.values.toList()..sort((a, b) => b.receivedDate.compareTo(a.receivedDate));
           if (notifications.isEmpty) {
             return const Center(child: Text('No tienes notificaciones.'));

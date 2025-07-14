@@ -1,66 +1,79 @@
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart'; // ✅ 1. IMPORTAR PARA kDebugMode
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:logging/logging.dart';
-
-import 'package:safety_app/firebase_options.dart';
-import 'package:safety_app/models/notification_model.dart';
+import 'package:safety_app/models/app_notification.dart';
+import 'package:safety_app/screens/notificacion_detail_screen.dart'; // Import correcto
 import 'package:safety_app/screens/splash_screen.dart';
+import 'package:safety_app/services/notification_service.dart';
+import 'firebase_options.dart';
 
-// --- Imports para Navegación ---
-import 'package:safety_app/services/navigation_service.dart';
-// ❌ 2. ELIMINAR IMPORT SIN USAR: import 'package:safety_app/screens/notificaciones_list_screen.dart';
-import 'package:safety_app/screens/notificacion_detail_screen.dart'; // ✅ 3. AÑADIR IMPORT FALTANTE
+// --- HANDLERS Y NAVEGACIÓN (NIVEL SUPERIOR) ---
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void _setupLogging() {
-  // Esta configuración es correcta, solo muestra logs en modo debug.
-  if (kDebugMode) {
-    Logger.root.level = Level.ALL;
-    Logger.root.onRecord.listen((record) {
-      // El print dentro de kDebugMode es una práctica aceptable.
-      if (kDebugMode) {
-        print('${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
-      }
-    });
+void navigateToDetailScreen(Map<String, String?> payload) {
+  final notificationId = payload['notification_id'];
+  if (notificationId != null && navigatorKey.currentState != null) {
+    navigatorKey.currentState!.push(MaterialPageRoute(
+      builder: (_) => NotificationDetailScreen(notificationId: notificationId),
+    ));
   }
 }
 
+@pragma("vm:entry-point")
+Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
+  if (receivedAction.payload?['notification_id'] != null) {
+    navigateToDetailScreen(receivedAction.payload!);
+  }
+}
+
+@pragma("vm:entry-point")
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Hive.initFlutter();
+  if (!Hive.isAdapterRegistered(AppNotificationAdapter().typeId)) {
+    Hive.registerAdapter(AppNotificationAdapter());
+  }
+  await NotificationService.handleMessage(message);
+}
+
+// --- FUNCIÓN PRINCIPAL ---
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  _setupLogging();
-  await dotenv.load(fileName: ".env");
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   await Hive.initFlutter();
-  Hive.registerAdapter(NotificationModelAdapter());
-  await Hive.openBox<NotificationModel>('notifications');
+  Hive.registerAdapter(AppNotificationAdapter());
+  await Hive.openBox<AppNotification>('notifications');
+
+  await NotificationService.initialize();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+// --- WIDGETS DE LA APP ---
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.setupListeners();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      navigatorKey: NavigationService.navigatorKey,
-      title: 'SafetyMex',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const SplashScreen(),
-      routes: {
-        '/notification_detail': (context) {
-          final String notificationId = ModalRoute.of(context)!.settings.arguments as String;
-          // Ahora 'NotificationDetailScreen' ya no dará error.
-          return NotificationDetailScreen(notificationId: notificationId);
-        }
-      },
+      navigatorKey: navigatorKey,
+      title: 'SafetyApp',
+      home: const SplashScreen(), // Asegúrate de tener este archivo
     );
   }
 }

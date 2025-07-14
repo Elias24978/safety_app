@@ -11,88 +11,68 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // --- CAMBIO: Añadimos un controlador para el nombre ---
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-
-  bool _isPasswordObscured = true;
-  bool _isConfirmPasswordObscured = true;
-
-  // --- CAMBIO: Actualizamos la función de registro ---
-  Future<void> signUp() async {
-    final navigator = Navigator.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-    // Validación 1: Campos vacíos (incluyendo el nuevo campo de usuario)
-    if (_usernameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty || _confirmPasswordController.text.isEmpty) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, rellena todos los campos.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Las contraseñas no coinciden.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    try {
-      // 1. Creamos el usuario con email y contraseña
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      // 2. Si se crea correctamente, actualizamos su perfil con el nombre
-      if (userCredential.user != null) {
-        await userCredential.user!.updateDisplayName(_usernameController.text.trim());
-      }
-
-      if (!mounted) return;
-      navigator.pushReplacement(
-        MaterialPageRoute(builder: (_) => const MenuScreen()),
-      );
-
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = "Error: Revisa tus datos e inténtalo de nuevo.";
-      if (e.code == 'weak-password') {
-        errorMessage = 'La contraseña es muy débil (mín. 6 caracteres).';
-      } else if (e.code == 'email-already-in-use') {
-        errorMessage = 'Este correo electrónico ya está registrado.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'El formato del correo electrónico no es válido.';
-      } else if (e.code == 'network-request-failed') {
-        errorMessage = 'No hay conexión a internet. Por favor, revisa tu red.';
-      }
-
-      if (!mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+  // Controladores para cada campo de texto
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
-    _usernameController.dispose(); // No olvidar el nuevo controlador
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
+
+  // Lógica para registrar al usuario
+  Future<void> _signUp() async {
+    // 1. Validar que las contraseñas coincidan
+    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+      _showErrorDialog("Las contraseñas no coinciden.");
+      return;
+    }
+
+    // Muestra un círculo de carga
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    // 2. Intentar crear el usuario en Firebase
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      // 3. Si es exitoso, navega a la pantalla del menú
+      if (mounted) {
+        Navigator.pop(context); // Cierra el diálogo de carga
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MenuScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) Navigator.pop(context); // Cierra el diálogo de carga
+
+      // Muestra el error específico de Firebase
+      _showErrorDialog(e.message ?? "Ocurrió un error desconocido.");
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error de Registro'),
+        content: Text(message),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -103,98 +83,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.black),
         ),
       ),
       body: SingleChildScrollView(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 40),
+          height: MediaQuery.of(context).size.height - 80,
           width: double.infinity,
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
               const Column(
                 children: <Widget>[
-                  Text("Regístrate", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+                  Text("¡Regístrate!", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
                   SizedBox(height: 10),
                   Text("Crea una cuenta, es gratis", style: TextStyle(fontSize: 15, color: Colors.grey)),
                 ],
               ),
-              const SizedBox(height: 40),
               Column(
                 children: <Widget>[
-                  // --- CAMBIO: Campo de texto para el nombre de usuario ---
-                  TextField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(labelText: 'Nombre de Usuario'),
-                  ),
+                  TextField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email')),
                   const SizedBox(height: 20),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                  ),
+                  TextField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Contraseña')),
                   const SizedBox(height: 20),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _isPasswordObscured,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña (mín. 6 caracteres)',
-                      suffixIcon: IconButton(
-                        icon: Icon(_isPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordObscured = !_isPasswordObscured;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _confirmPasswordController,
-                    obscureText: _isConfirmPasswordObscured,
-                    decoration: InputDecoration(
-                      labelText: 'Confirmar Contraseña',
-                      suffixIcon: IconButton(
-                        icon: Icon(_isConfirmPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () {
-                          setState(() {
-                            _isConfirmPasswordObscured = !_isConfirmPasswordObscured;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
+                  TextField(controller: _confirmPasswordController, obscureText: true, decoration: const InputDecoration(labelText: 'Confirmar Contraseña')),
                 ],
               ),
-              const SizedBox(height: 40),
               MaterialButton(
                 minWidth: double.infinity,
                 height: 60,
-                onPressed: signUp,
+                onPressed: _signUp, // Llama a la función de registro
                 color: const Color(0xff2A2A2A),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                child: const Text(
-                  "Registrarse",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
-                ),
+                child: const Text("Registrarse", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
               ),
-              const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   const Text("¿Ya tienes una cuenta?"),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                    },
-                    child: const Text(
-                      " Inicia sesión",
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.blue),
-                    ),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen())),
+                    child: const Text(" Inicia sesión", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                   ),
                 ],
               ),

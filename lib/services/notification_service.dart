@@ -1,110 +1,89 @@
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_app_badger/flutter_app_badger.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
-import 'package:safety_app/models/notification_model.dart';
-import 'package:logging/logging.dart'; // 1. IMPORTA EL PAQUETE
-
-// 2. CREA UNA INSTANCIA DEL LOGGER
-final _log = Logger('NotificationService');
+import 'package:safety_app/main.dart';
+import 'package:safety_app/models/app_notification.dart';
 
 class NotificationService {
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  final Box<NotificationModel> _notificationBox = Hive.box<NotificationModel>('notifications');
+  static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static const String channelKey = 'basic_channel';
 
-  Future<void> initNotifications() async {
-    await _fcm.requestPermission();
-    final fcmToken = await _fcm.getToken();
-    _log.info('FCM Token: $fcmToken'); // 👈 PRINT REEMPLAZADO
-
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings settings = InitializationSettings(android: androidSettings);
-
-    await _localNotifications.initialize(
-      settings,
-      onDidReceiveNotificationResponse: onSelectNotification,
+  static Future<void> initialize() async {
+    await _messaging.requestPermission();
+    await AwesomeNotifications().initialize(
+      null,
+      [
+        NotificationChannel(
+            channelKey: channelKey,
+            channelName: 'Notificaciones Básicas',
+            channelDescription: 'Canal para notificaciones generales.',
+            importance: NotificationImportance.High,
+            channelShowBadge: true)
+      ],
+      debug: kDebugMode,
     );
-    _setupListeners();
+    AwesomeNotifications().setListeners(onActionReceivedMethod: onActionReceivedMethod);
   }
 
-  void onSelectNotification(NotificationResponse response) {
-    if (response.payload != null) {
-      _log.info('Notificación local tocada, payload: ${response.payload}'); // 👈 PRINT REEMPLAZADO
-      _handleNotificationTap({'notification_id': response.payload});
-    }
-  }
-
-  void _setupListeners() {
+  static void setupListeners() {
+    handleInitialMessage();
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _log.info('Notificación recibida en primer plano: ${message.notification?.title}'); // 👈 PRINT REEMPLAZADO
-      if (message.notification != null) {
-        _showLocalNotification(message);
-        _saveAndBadge(message);
-      }
+      handleMessage(message);
     });
-
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _log.info('App abierta desde notificación en segundo plano'); // 👈 PRINT REEMPLAZADO
-      _handleNotificationTap(message.data);
-    });
-
-    _fcm.getInitialMessage().then((RemoteMessage? message) {
-      if (message != null) {
-        _log.info('App abierta desde notificación con la app terminada'); // 👈 PRINT REEMPLAZADO
-        _handleNotificationTap(message.data);
+      if (message.data['notification_id'] != null) {
+        navigateToDetailScreen(Map<String, String?>.from(message.data));
       }
     });
   }
 
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    final notification = message.notification;
-    if (notification == null) return;
-    await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'high_importance_channel',
-          'Notificaciones Importantes',
-          channelDescription: 'Este canal es para notificaciones importantes.',
-          importance: Importance.max,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
+  static Future<void> handleInitialMessage() async {
+    RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+    if (initialMessage != null && initialMessage.data['notification_id'] != null) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        navigateToDetailScreen(Map<String, String?>.from(initialMessage.data));
+      });
+    }
+  }
+
+  static Future<void> handleMessage(RemoteMessage message) async {
+    final box = Hive.box<AppNotification>('notifications');
+    final String uniqueId = message.data['notification_id'] ?? DateTime.now().toIso8601String();
+
+    await box.put(
+      uniqueId,
+      AppNotification(
+        id: uniqueId,
+        title: message.data['title'] ?? message.notification?.title ?? 'Sin Título',
+        content: message.data['body'] ?? message.notification?.body ?? 'Sin Contenido',
+        receivedDate: DateTime.now(),
       ),
-      payload: message.data['notification_id'],
+    );
+
+    final unreadCount = box.values.where((n) => !n.isRead).length;
+
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: uniqueId.hashCode,
+        channelKey: channelKey,
+        title: message.data['title'] ?? message.notification?.title,
+        body: message.data['body'] ?? message.notification?.body,
+        payload: {'notification_id': uniqueId}, // ✅ Parámetro 'payload' definido
+        notificationLayout: NotificationLayout.Default,
+        badge: unreadCount,
+      ),
     );
   }
 
-  Future<void> _saveAndBadge(RemoteMessage message) async {
-    final notificationData = message.notification;
-    final uniqueId = message.data['notification_id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
-    final newNotification = NotificationModel(
-      id: uniqueId,
-      title: notificationData?.title ?? 'Sin Título',
-      content: notificationData?.body ?? 'Sin Contenido',
-      receivedDate: DateTime.now(),
-      isRead: false,
-    );
-    await _notificationBox.put(uniqueId, newNotification);
-    await updateBadgeCount();
-  }
-
-  void _handleNotificationTap(Map<String, dynamic> data) {
-    final notificationId = data['notification_id'];
-    if (notificationId != null) {
-      _log.info("Navegando a la pantalla de detalle para la notificación ID: $notificationId"); // 👈 PRINT REEMPLAZADO
+  static Future<void> markAsReadAndUpdateBadge(String notificationId) async {
+    final box = Hive.box<AppNotification>('notifications');
+    final notification = box.get(notificationId);
+    if (notification != null && !notification.isRead) {
+      notification.isRead = true;
+      await notification.save();
     }
-  }
-
-  Future<void> updateBadgeCount() async {
-    final unreadCount = _notificationBox.values.where((n) => !n.isRead).length;
-    if (unreadCount > 0) {
-      FlutterAppBadger.updateBadgeCount(unreadCount);
-    } else {
-      FlutterAppBadger.removeBadge();
-    }
+    final unreadCount = box.values.where((n) => !n.isRead).length;
+    await AwesomeNotifications().setGlobalBadgeCounter(unreadCount);
   }
 }
