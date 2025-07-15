@@ -22,6 +22,12 @@ dependencies:
   cloud_firestore: ^4.17.3
   firebase_auth: ^4.19.2
 
+  # Para manejar el estado de la selección
+  provider: ^6.1.2
+
+  # Para guardar la selección en el dispositivo
+  shared_preferences: ^2.2.3
+
   # Almacenamiento Local y Utilidades
   hive: ^2.2.3
   hive_flutter: ^1.1.0
