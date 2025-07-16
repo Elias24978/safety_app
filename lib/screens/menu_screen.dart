@@ -1,7 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Importamos la librería de íconos
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:safety_app/screens/placeholder_screen.dart';
+import 'package:safety_app/screens/notificaciones_list_screen.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -11,36 +12,63 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  int _selectedIndex = 0;
-  User? _user; // Variable para guardar los datos del usuario
+  int _bottomNavIndex = 0;
+  User? _user;
+
+  int _selectedGridIndex = 3;
+
+  final List<Map<String, dynamic>> _menuItems = [
+    {
+      'icon': FontAwesomeIcons.clipboardCheck,
+      'label': "Revisar Normas STPS",
+    },
+    {
+      'icon': FontAwesomeIcons.solidFileLines,
+      'label': "Formatos",
+    },
+    {
+      'icon': FontAwesomeIcons.certificate,
+      'label': "Certificaciones DC3",
+    },
+    {
+      'icon': FontAwesomeIcons.briefcase,
+      'label': "Bolsa de Trabajo",
+    },
+    {
+      'icon': FontAwesomeIcons.blog,
+      'label': "Blog",
+    },
+    {
+      'icon': FontAwesomeIcons.cartShopping,
+      'label': "Compras",
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Obtenemos el usuario actual cuando la pantalla se inicia
     _user = FirebaseAuth.instance.currentUser;
   }
 
-  // --- WIDGET AUXILIAR MEJORADO ---
-  // Añadimos un parámetro para el color de fondo
   Widget _buildMenuButton({
     required IconData icon,
     required String label,
     required VoidCallback onPressed,
-    Color backgroundColor = const Color(0xFFF5F5F5), // Gris claro por defecto
+    Color backgroundColor = const Color(0xFFF5F5F5),
     Color iconColor = Colors.black87,
   }) {
     return InkWell(
       onTap: onPressed,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(20), // Bordes más redondeados
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FaIcon(icon, size: 40, color: iconColor), // Usamos FaIcon para los nuevos íconos
+            FaIcon(icon, size: 40, color: iconColor),
             const SizedBox(height: 12),
             Text(
               label,
@@ -57,12 +85,36 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   void _navigateToPlaceholder(String title) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => PlaceholderScreen(title: title)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PlaceholderScreen(title: title)),
+    );
   }
+
+  void _onBottomNavItemTapped(int index) {
+    if (index == 0) {
+      setState(() {
+        _bottomNavIndex = index;
+      });
+      return;
+    }
+
+    switch (index) {
+      case 1:
+        _navigateToPlaceholder('Escritorio');
+        break;
+      case 2:
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsListScreen()));
+        break;
+      case 3:
+        _navigateToPlaceholder('Tu Cuenta');
+        break;
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    // Extraemos la primera parte del email para mostrarla como nombre
     final String displayName = _user?.displayName ?? 'Usuario';
 
     return Scaffold(
@@ -74,14 +126,12 @@ class _MenuScreenState extends State<MenuScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notificaciones'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tu Cuenta'),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.deepPurple, // Color morado como en la imagen
+        currentIndex: _bottomNavIndex,
+        selectedItemColor: Colors.deepPurple,
         unselectedItemColor: Colors.grey,
-        onTap: (int index) {
-          setState(() { _selectedIndex = index; });
-        },
-        type: BottomNavigationBarType.fixed, // Asegura que todos los ítems se vean
-        showUnselectedLabels: true, // Muestra los labels de los ítems no seleccionados
+        onTap: _onBottomNavItemTapped,
+        type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
       ),
       body: SafeArea(
         child: Padding(
@@ -89,64 +139,47 @@ class _MenuScreenState extends State<MenuScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 20), // Espacio superior
-              // --- TEXTOS ACTUALIZADOS ---
+              const SizedBox(height: 20),
               Text(
                 "Hola $displayName",
                 style: const TextStyle(
-                  fontSize: 32, // Tamaño de letra más grande
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Text(
                 "¿Qué haremos el día de hoy?",
                 style: TextStyle(
-                  fontSize: 18, // Tamaño de letra más pequeño
+                  fontSize: 18,
                   color: Colors.grey,
                 ),
               ),
               const SizedBox(height: 30),
-
-              // --- CUADRÍCULA CON ÍCONOS Y LABELS ACTUALIZADOS ---
               Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: <Widget>[
-                    _buildMenuButton(
-                      icon: FontAwesomeIcons.clipboardCheck,
-                      label: "Revisar Normas STPS",
-                      onPressed: () => _navigateToPlaceholder("Revisar Normas STPS"),
-                    ),
-                    _buildMenuButton(
-                      icon: FontAwesomeIcons.solidFileLines,
-                      label: "Formatos",
-                      onPressed: () => _navigateToPlaceholder("Formatos"),
-                    ),
-                    _buildMenuButton(
-                      icon: FontAwesomeIcons.certificate,
-                      label: "Certificaciones DC3",
-                      onPressed: () => _navigateToPlaceholder("Certificaciones DC3"),
-                    ),
-                    // Botón con color de fondo personalizado
-                    _buildMenuButton(
-                      icon: FontAwesomeIcons.briefcase,
-                      label: "Bolsa de Trabajo",
-                      onPressed: () => _navigateToPlaceholder("Bolsa de Trabajo"),
-                      backgroundColor: const Color(0xFFFFD143), // Fondo amarillo
-                    ),
-                    _buildMenuButton(
-                      icon: FontAwesomeIcons.blog,
-                      label: "Blog",
-                      onPressed: () => _navigateToPlaceholder("Blog"),
-                    ),
-                    _buildMenuButton(
-                      icon: FontAwesomeIcons.cartShopping,
-                      label: "Compras",
-                      onPressed: () => _navigateToPlaceholder("Compras"),
-                    ),
-                  ],
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: _menuItems.length,
+                  itemBuilder: (context, index) {
+                    final item = _menuItems[index];
+                    final isSelected = _selectedGridIndex == index;
+                    final backgroundColor = isSelected ? const Color(0xFFFFD143) : const Color(0xFFF5F5F5);
+
+                    return _buildMenuButton(
+                      icon: item['icon'],
+                      label: item['label'],
+                      backgroundColor: backgroundColor,
+                      onPressed: () {
+                        setState(() {
+                          _selectedGridIndex = index;
+                        });
+                        _navigateToPlaceholder(item['label']);
+                      },
+                    );
+                  },
                 ),
               ),
             ],
