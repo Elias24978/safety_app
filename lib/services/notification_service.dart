@@ -26,6 +26,13 @@ class NotificationService {
     AwesomeNotifications().setListeners(onActionReceivedMethod: onActionReceivedMethod);
   }
 
+  // ✅ NUEVA FUNCIÓN: Para actualizar el contador global de notificaciones
+  static Future<void> updateGlobalBadge() async {
+    final box = Hive.box<AppNotification>('notifications');
+    final unreadCount = box.values.where((n) => !n.isRead).length;
+    await AwesomeNotifications().setGlobalBadgeCounter(unreadCount);
+  }
+
   static void setupListeners() {
     handleInitialMessage();
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -57,7 +64,7 @@ class NotificationService {
         id: uniqueId,
         title: message.data['title'] ?? message.notification?.title ?? 'Sin Título',
         content: message.data['body'] ?? message.notification?.body ?? 'Sin Contenido',
-        receivedDate: DateTime.now(),
+        receivedDate: DateTime.now().toUtc(),
       ),
     );
 
