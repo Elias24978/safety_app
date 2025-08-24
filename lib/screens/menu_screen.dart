@@ -4,14 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:safety_app/screens/escritorio_screen.dart';
-import 'package:safety_app/screens/normas_stps_screen.dart'; // <-- 1. IMPORTA LA NUEVA PANTALLA
+import 'package:safety_app/screens/normas_stps_screen.dart';
 import 'package:safety_app/screens/notificaciones_list_screen.dart';
 import 'package:safety_app/screens/placeholder_screen.dart';
 import 'package:safety_app/screens/profile_screen.dart';
 import 'package:safety_app/services/ad_manager.dart';
 import 'package:safety_app/services/database_service.dart';
+import 'package:safety_app/screens/formatos_screen.dart';
 
-// --- WIDGET EXTRAÍDO PARA OPTIMIZACIÓN ---
 class MenuButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -68,6 +68,8 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
+  // Al usar el AdManager con el patrón Singleton, esta llamada siempre
+  // devuelve la única instancia existente, evitando errores.
   final AdManager _adManager = AdManager();
   final DatabaseService _databaseService = DatabaseService();
 
@@ -97,23 +99,25 @@ class _MenuScreenState extends State<MenuScreen> {
     );
   }
 
-  // --- 2. MÉTODO ACTUALIZADO ---
   void _onGridItemTapped(String label) {
-    // Maneja el caso especial de las normas para ir a la nueva pantalla
     if (label == "Revisar Normas STPS") {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const NormasStpsScreen()),
       );
-      return; // Termina la función aquí para este caso
+      return;
     }
 
-    // Lógica existente para los demás botones
     void navigateAction() {
-      _navigateToPlaceholder(label);
+      if (label == "Formatos") {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const FormatosScreen()));
+      }
+      else {
+        _navigateToPlaceholder(label);
+      }
     }
 
-    // Se quita "Revisar Normas STPS" de la lista de anuncios
     final itemsWithAds = [
       "Formatos",
       "Certificaciones DC3",
