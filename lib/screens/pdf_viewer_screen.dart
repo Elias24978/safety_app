@@ -1,10 +1,12 @@
+// lib/screens/pdf_viewer_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart'; // Importamos el nuevo paquete
+import 'package:device_info_plus/device_info_plus.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String fileUrl;
@@ -25,12 +27,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   @override
   void initState() {
     super.initState();
-    // Carga el PDF en una ubicación temporal solo para visualización
     _loadPdfForViewing();
   }
 
   Future<void> _loadPdfForViewing() async {
-    // Esta función no necesita permisos, ya que usa el directorio temporal de la app.
     try {
       final response = await Dio().get(
         widget.fileUrl,
@@ -45,7 +45,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         });
       }
     } catch (e) {
-      print('Error cargando PDF para visualización: $e');
+      debugPrint('Error cargando PDF para visualización: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error al cargar el PDF.')),
@@ -53,7 +53,6 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     }
   }
 
-  // ✅ INICIO DE LA LÓGICA DE PERMISOS ACTUALIZADA
   Future<void> _requestDownload() async {
     bool hasPermission = await _checkAndRequestPermission();
     if (hasPermission) {
@@ -61,18 +60,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     }
   }
 
-  /// Verifica y solicita permisos de forma inteligente según la versión de Android.
   Future<bool> _checkAndRequestPermission() async {
     bool isGranted;
-
-    // En Android 13 (SDK 33) y superior, no se necesita ningún permiso
-    // para guardar en la carpeta de descargas.
     if (Platform.isAndroid) {
       final deviceInfo = await DeviceInfoPlugin().androidInfo;
       if (deviceInfo.version.sdkInt >= 33) {
-        isGranted = true; // El permiso no es necesario, así que consideramos que está concedido.
+        isGranted = true;
       } else {
-        // Para versiones de Android 12 e inferiores, sí necesitamos el permiso.
         var status = await Permission.storage.status;
         if (status.isPermanentlyDenied) {
           _showSettingsDialog();
@@ -84,17 +78,14 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         isGranted = status.isGranted;
       }
     } else {
-      // Para otras plataformas como iOS, asumimos que se puede escribir.
       isGranted = true;
     }
 
-    if (!isGranted) {
-      if (!mounted) return false;
+    if (!isGranted && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Permiso de almacenamiento denegado.')),
       );
     }
-
     return isGranted;
   }
 
@@ -105,7 +96,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Permiso Requerido'),
         content: const Text(
-            'El permiso de almacenamiento es necesario para guardar archivos. Por favor, actívalo en los ajustes de la aplicación.'),
+            'El permiso de almacenamiento es necesario. Por favor, actívalo en los ajustes de la aplicación.'),
         actions: [
           TextButton(
             child: const Text('Cancelar'),
@@ -114,7 +105,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           TextButton(
             child: const Text('Abrir Ajustes'),
             onPressed: () {
-              openAppSettings(); // Abre los ajustes de la app
+              openAppSettings();
               Navigator.of(context).pop();
             },
           ),
@@ -124,10 +115,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   }
 
   Future<void> _startDownload() async {
-    // `getDownloadsDirectory()` funciona sin permisos en Android moderno.
-    final Directory? dir = await getDownloadsDirectory();
+    final Directory? downloadsDir = await getDownloadsDirectory();
 
-    if (dir == null) {
+    if (downloadsDir == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -136,7 +126,14 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       return;
     }
 
-    final savePath = '${dir.path}/${widget.normaName}.pdf';
+    // --- 👇 CAMBIO PARA CREAR CARPETA "SafetyMex" ---
+    final safetyMexDir = Directory('${downloadsDir.path}/SafetyMex');
+    if (!await safetyMexDir.exists()) {
+      await safetyMexDir.create(recursive: true);
+    }
+    final savePath = '${safetyMexDir.path}/${widget.normaName}.pdf';
+    // --- FIN DEL CAMBIO ---
+
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0.0;
@@ -157,10 +154,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Descargado en: ${dir.path}')),
+        SnackBar(content: Text('Descargado en: ${safetyMexDir.path}')),
       );
     } catch (e) {
-      print('Error al descargar: $e');
+      debugPrint('Error al descargar: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error al descargar el archivo.')),
@@ -173,7 +170,6 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       }
     }
   }
-  // ✅ FIN DE LA LÓGICA DE PERMISOS
 
   @override
   Widget build(BuildContext context) {
@@ -181,10 +177,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       appBar: AppBar(
         title: Text(widget.normaName),
         backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            onPressed: _isDownloading ? null : _requestDownload, // Llamamos a la nueva función
-            icon: const Icon(Icons.download),
+            onPressed: _isDownloading ? null : _requestDownload,
+            icon: const Icon(Icons.download_for_offline_outlined),
+            tooltip: 'Descargar',
           ),
         ],
       ),

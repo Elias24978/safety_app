@@ -30,6 +30,7 @@ class _NormaListScreenState extends State<NormaListScreen> {
       appBar: AppBar(
         title: Text(widget.categoryName),
         backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
       ),
       body: FutureBuilder<List<Norma>>(
         future: _normasFuture,

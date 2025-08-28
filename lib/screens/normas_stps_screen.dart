@@ -39,6 +39,7 @@ class _NormasStpsScreenState extends State<NormasStpsScreen> {
       appBar: AppBar(
         title: const Text('Categorías de Normas'),
         backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
       ),
       body: FutureBuilder<List<Category>>(
         future: _categoriesFuture,
