@@ -30,3 +30,10 @@ functions/node_modules/
 
 # Logs
 *.log
+
+# Archivos de configuración de Firebase
+/android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist
+
+# Otras claves y secretos
+secrets.json
