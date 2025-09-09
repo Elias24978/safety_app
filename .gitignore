@@ -1,0 +1,32 @@
+# Archivos generados por Flutter y Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+pubspec.lock
+
+
+# Archivos sensibles (¡MUY IMPORTANTE!)
+.env
+
+# Archivos específicos de Android
+/.gradle
+/captures/
+/local.properties
+GeneratedPluginRegistrant.java
+.cxx/
+key.properties
+**/*.keystore
+**/*.jks
+
+# Dependencias de Cloud Functions
+functions/node_modules/
+
+# Archivos de configuración de IDEs
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
