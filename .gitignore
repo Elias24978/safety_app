@@ -8,7 +8,7 @@ pubspec.lock
 
 
 # Archivos sensibles (¡MUY IMPORTANTE!)
-.env
+.env*
 
 # Archivos específicos de Android
 /.gradle
