@@ -17,7 +17,10 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
   List<Map<String, dynamic>> _filteredRecords = [];
   bool _isLoading = true;
   String? _error;
+
+  // Novedad: Controladores de estado para acciones en un elemento específico
   String? _sharingItemId;
+  String? _deletingItemId;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -43,7 +46,7 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
       final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
           .httpsCallable('getDc3RecordsByUser');
 
-      final response = await callable.call({'type': 'uploaded'});
+      final response = await callable.call({'type': 'all'});
 
       final List<dynamic> recordsDynamic = response.data['records'] ?? [];
       final recordList = recordsDynamic
@@ -148,11 +151,89 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
     }
   }
 
+  // ✅ NUEVA FUNCIÓN: Muestra un diálogo de confirmación y elimina el registro.
+  Future<void> _confirmAndDeleteRecord(Map<String, dynamic> record) async {
+    final recordId = record['id'] as String;
+    final courseName = record['courseName'] as String? ?? 'esta constancia';
+
+    // Muestra un diálogo de alerta para confirmar la acción
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Borrado'),
+          content: Text('¿Estás seguro de que quieres eliminar permanentemente "$courseName"? Esta acción no se puede deshacer.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Cierra el diálogo y devuelve 'false'
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true), // Cierra el diálogo y devuelve 'true'
+              child: Text('Borrar', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Si el usuario no confirma (presiona 'Cancelar' o fuera del diálogo), no hacer nada
+    if (shouldDelete != true) return;
+
+    // El usuario confirmó. Mostrar indicador de carga y llamar a la función de Firebase.
+    setState(() => _deletingItemId = recordId);
+
+    try {
+      // Se asume que tienes una Cloud Function llamada 'deleteDc3Record' que recibe 'recordId'
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('deleteDc3Record');
+
+      await callable.call({'recordId': recordId});
+
+      if (!mounted) return;
+
+      // Elimina el registro de la lista local para actualizar la UI instantáneamente
+      setState(() {
+        _allRecords.removeWhere((r) => r['id'] == recordId);
+        _filteredRecords.removeWhere((r) => r['id'] == recordId);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Constancia eliminada correctamente.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al eliminar: ${e.message}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      debugPrint("Firebase Functions Error on delete: ${e.code} - ${e.message}");
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ocurrió un error inesperado al eliminar.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      debugPrint("Error deleting DC3 record: $e");
+    } finally {
+      if (mounted) setState(() => _deletingItemId = null);
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Constancias Subidas'),
+        title: const Text('Mis Constancias'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -179,7 +260,6 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
     );
   }
 
-  // ✅ WIDGET MODIFICADO
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -200,21 +280,17 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
           final record = _filteredRecords[index];
           final courseName = record['courseName'] as String? ?? 'Curso sin nombre';
           final workerName = record['workerName'] as String? ?? 'Trabajador';
-
-          // Se obtiene la fecha del registro
           final executionDate = record['executionDate'] as String? ?? 'Fecha no disponible';
 
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: ListTile(
               leading: Icon(
-                Icons.cloud_upload_outlined, // Icono fijo para 'subidos'
+                Icons.cloud_upload_outlined,
                 color: Theme.of(context).primaryColor,
                 size: 36,
               ),
               title: Text(courseName, style: const TextStyle(fontWeight: FontWeight.bold)),
-
-              // Se actualiza el subtítulo para mostrar nombre y fecha
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -222,15 +298,12 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
                   const SizedBox(height: 2),
                   Text(
                     executionDate,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
               ),
-
-              trailing: _sharingItemId == record['id']
+              // ✅ MODIFICADO: Muestra un indicador si se está compartiendo O borrando
+              trailing: (_sharingItemId == record['id'] || _deletingItemId == record['id'])
                   ? const SizedBox(
                 height: 24,
                 width: 24,
@@ -242,6 +315,10 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
                     _viewPdf(record);
                   } else if (value == 'share') {
                     _sharePdf(record);
+                  }
+                  // ✅ MODIFICADO: Maneja la nueva opción 'delete'
+                  else if (value == 'delete') {
+                    _confirmAndDeleteRecord(record);
                   }
                 },
                 itemBuilder: (context) => [
@@ -259,6 +336,16 @@ class _ReviewDc3ScreenState extends State<ReviewDc3Screen> {
                       Icon(Icons.share_outlined, color: Colors.grey),
                       SizedBox(width: 8),
                       Text('Compartir'),
+                    ]),
+                  ),
+                  const PopupMenuDivider(), // Separador visual
+                  // ✅ MODIFICADO: Añade el nuevo item para borrar
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(children: [
+                      Icon(Icons.delete_outline, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Borrar', style: TextStyle(color: Colors.red)),
                     ]),
                   ),
                 ],

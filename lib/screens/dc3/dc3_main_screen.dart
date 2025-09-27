@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:safety_app/screens/dc3/dc3_form_screen.dart';
 import 'package:safety_app/screens/dc3/review_dc3_screen.dart';
 import 'package:safety_app/screens/dc3/upload_dc3_screen.dart';
 
@@ -31,6 +32,21 @@ class Dc3MainScreen extends StatelessWidget {
             const SizedBox(height: 32),
             _buildOptionCard(
               context,
+              // Novedad: Ícono para "crear" o "añadir" un nuevo documento.
+              icon: Icons.note_add_outlined,
+              title: 'Generador de DC-3',
+              subtitle: 'Crea y descarga una nueva constancia desde la app.',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DC3FormScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildOptionCard(
+              context,
+              // Se mantiene el ícono de "subir", que es muy claro.
               icon: Icons.cloud_upload_outlined,
               title: 'Subir Constancia Externa',
               subtitle: 'Almacena de forma segura un nuevo certificado DC-3.',
@@ -44,7 +60,8 @@ class Dc3MainScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _buildOptionCard(
               context,
-              icon: Icons.list_alt_outlined,
+              // Novedad: Ícono que representa un "archivo" o "inventario" de documentos.
+              icon: Icons.inventory_2_outlined,
               title: 'Mis Constancias',
               subtitle: 'Consulta, valida y comparte todas tus DC-3.',
               onTap: () {
@@ -98,6 +115,8 @@ class Dc3MainScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              // El ícono de flecha se mantiene igual en todas las tarjetas
+              // para indicar de forma consistente que son navegables.
               const Icon(Icons.arrow_forward_ios, color: Colors.grey),
             ],
           ),
