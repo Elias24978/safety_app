@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:safety_app/screens/dc3/dc3_main_screen.dart'; // <--- 1. IMPORTACIÓN AGREGADA
+import 'package:safety_app/screens/dc3/dc3_main_screen.dart';
 import 'package:safety_app/screens/escritorio_screen.dart';
 import 'package:safety_app/screens/normas_stps_screen.dart';
 import 'package:safety_app/screens/notificaciones_list_screen.dart';
@@ -10,6 +10,7 @@ import 'package:safety_app/screens/profile_screen.dart';
 import 'package:safety_app/services/ad_manager.dart';
 import 'package:safety_app/services/database_service.dart';
 import 'package:safety_app/screens/formatos_screen.dart';
+import 'package:safety_app/screens/bolsa_trabajo/role_selection_screen.dart';
 
 class MenuButton extends StatelessWidget {
   final IconData icon;
@@ -67,8 +68,6 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  // Al usar el AdManager con el patrón Singleton, esta llamada siempre
-  // devuelve la única instancia existente, evitando errores.
   final AdManager _adManager = AdManager();
   final DatabaseService _databaseService = DatabaseService();
 
@@ -108,7 +107,6 @@ class _MenuScreenState extends State<MenuScreen> {
     }
 
     void navigateAction() {
-      // --- 2. INICIO DE LA MODIFICACIÓN ---
       if (label == "Formatos") {
         Navigator.push(
             context, MaterialPageRoute(builder: (context) => const FormatosScreen()));
@@ -116,16 +114,19 @@ class _MenuScreenState extends State<MenuScreen> {
         Navigator.push(
             context, MaterialPageRoute(builder: (context) => const Dc3MainScreen()));
       }
-      // --- FIN DE LA MODIFICACIÓN ---
+      else if (label == "Bolsa de Trabajo") {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const RoleSelectionScreen()));
+      }
       else {
         _navigateToPlaceholder(label);
       }
     }
 
+    // ✅ CAMBIO: "Bolsa de Trabajo" se ha eliminado de esta lista.
     final itemsWithAds = [
       "Formatos",
       "Certificaciones DC3",
-      "Bolsa de Trabajo"
     ];
 
     _databaseService.isUserPremiumStream.first.then((isPremium) {

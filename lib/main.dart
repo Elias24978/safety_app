@@ -34,15 +34,23 @@ Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
   }
 }
 
-/// Manejador de mensajes de Firebase Cloud Messaging cuando la app está en segundo plano.
+/// Manejador de mensajes de Firebase Cloud Messaging cuando la app está CERRADA.
 @pragma("vm:entry-point")
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Inicializamos los servicios básicos necesarios para que el handler funcione
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Hive.initFlutter();
+
+  // Nos aseguramos de que el adaptador y la caja de Hive estén listos
   if (!Hive.isAdapterRegistered(AppNotificationAdapter().typeId)) {
     Hive.registerAdapter(AppNotificationAdapter());
   }
-  await NotificationService.handleMessage(message);
+  if (!Hive.isBoxOpen('notifications')) {
+    await Hive.openBox<AppNotification>('notifications');
+  }
+
+  // ✅ CORRECCIÓN: Llamamos al método correcto del servicio.
+  await NotificationService.saveAndShowNotification(message);
 }
 
 /// Inicializa todos los servicios necesarios para la aplicación de forma concurrente.
@@ -50,16 +58,14 @@ Future<void> _initializeServices() async {
   // Primer bloque de inicializaciones en paralelo.
   await Future.wait([
     dotenv.load(fileName: ".env"),
-    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    // ✅ NOTA: Firebase se inicializa en main(), así que aquí ya está listo.
     Hive.initFlutter(),
   ]);
 
   Hive.registerAdapter(AppNotificationAdapter());
 
-  // ✅ CORRECCIÓN: Se activan App Check y se abre Hive en paralelo para mayor eficiencia.
   await Future.wait([
     FirebaseAppCheck.instance.activate(
-      // IMPORTANTE: Estos proveedores son solo para depuración.
       androidProvider: AndroidProvider.debug,
       appleProvider: AppleProvider.debug,
     ),
@@ -79,14 +85,20 @@ Future<void> _initializeServices() async {
     await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
   }
 
-  // Inicialización del servicio de notificaciones y el manejador en segundo plano.
+  // Inicialización del servicio de notificaciones (listeners de primer plano, etc.).
   await NotificationService.initialize();
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 }
 
 /// Punto de entrada principal de la aplicación.
-void main() {
+Future<void> main() async { // ✅ MEJORA: main ahora es async
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ MEJORA: Inicializamos Firebase aquí, antes que nada.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // ✅ MEJORA: Registramos el manejador de segundo plano lo antes posible.
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   runApp(MyApp(initialization: _initializeServices()));
 }
 
