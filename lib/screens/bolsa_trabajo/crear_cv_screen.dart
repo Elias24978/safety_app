@@ -5,7 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:safety_app/screens/bolsa_trabajo/candidato_dashboard_screen.dart';
-import 'package:safety_app/services/airtable_service.dart';
+// ✅ CAMBIO: Se importa el servicio correcto
+import 'package:safety_app/services/bolsa_trabajo_service.dart';
 
 class CrearCvScreen extends StatefulWidget {
   const CrearCvScreen({super.key});
@@ -16,7 +17,8 @@ class CrearCvScreen extends StatefulWidget {
 
 class _CrearCvScreenState extends State<CrearCvScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _airtableService = AirtableService();
+  // ✅ CAMBIO: Se instancia el servicio correcto
+  final _bolsaTrabajoService = BolsaTrabajoService();
   bool _isLoading = false;
   File? _cvFile;
   String? _cvFileName;
@@ -41,6 +43,18 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
     _nombreController.text = FirebaseAuth.instance.currentUser?.displayName ?? '';
   }
 
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _emailController.dispose();
+    _telefonoController.dispose();
+    _fechaNacimientoController.dispose();
+    _estadoController.dispose();
+    _ciudadController.dispose();
+    _resumenController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickAndValidateFile() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
     if (result == null) return;
@@ -59,10 +73,8 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
     });
   }
 
-  /// ✅ CAMBIO 1: La función ahora recibe el nombre del archivo.
   Future<String?> _uploadCvFile(File file, String userId, String fileName) async {
     try {
-      // ✅ CAMBIO 2: Se usa el nombre de archivo original en la ruta de Storage.
       final ref = FirebaseStorage.instance.ref('cvs/$userId/$fileName');
       final metadata = SettableMetadata(contentType: "application/pdf");
       final uploadTask = ref.putFile(file, metadata);
@@ -84,9 +96,12 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
       setState(() => _isLoading = true);
 
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) { /* ... */ return; }
+      if (user == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error de autenticación.')));
+        setState(() => _isLoading = false);
+        return;
+      }
 
-      // ✅ CAMBIO 3: Pasamos el nombre del archivo a la función de subida.
       final cvUrl = await _uploadCvFile(_cvFile!, user.uid, _cvFileName!);
 
       if (cvUrl == null) {
@@ -116,7 +131,9 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
       };
 
       fields.removeWhere((key, value) => value == null || (value is String && value.isEmpty));
-      final success = await _airtableService.createCandidatoProfile(fields);
+
+      // ✅ CAMBIO: Se llama al método desde el servicio correcto
+      final success = await _bolsaTrabajoService.createCandidatoProfile(fields);
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -157,7 +174,6 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ... (resto de los campos del formulario) ...
               TextFormField(controller: _nombreController, decoration: const InputDecoration(labelText: 'Nombre Completo*'), validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
               const SizedBox(height: 16),
               TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email de Contacto*'), keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
@@ -218,24 +234,13 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isLoading ? null : _submitForm,
-                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Guardar Perfil y Ver Vacantes'),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                child: _isLoading ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Text('Guardar Perfil y Ver Vacantes'),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nombreController.dispose();
-    _emailController.dispose();
-    _telefonoController.dispose();
-    _fechaNacimientoController.dispose();
-    _estadoController.dispose();
-    _ciudadController.dispose();
-    _resumenController.dispose();
-    super.dispose();
   }
 }

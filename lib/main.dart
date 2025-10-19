@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart'; // ✅ CAMBIO CLAVE: Importamos el paquete de anuncios
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:safety_app/models/app_notification.dart';
@@ -49,7 +50,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Hive.openBox<AppNotification>('notifications');
   }
 
-  // ✅ CORRECCIÓN: Llamamos al método correcto del servicio.
   await NotificationService.saveAndShowNotification(message);
 }
 
@@ -58,7 +58,6 @@ Future<void> _initializeServices() async {
   // Primer bloque de inicializaciones en paralelo.
   await Future.wait([
     dotenv.load(fileName: ".env"),
-    // ✅ NOTA: Firebase se inicializa en main(), así que aquí ya está listo.
     Hive.initFlutter(),
   ]);
 
@@ -90,13 +89,16 @@ Future<void> _initializeServices() async {
 }
 
 /// Punto de entrada principal de la aplicación.
-Future<void> main() async { // ✅ MEJORA: main ahora es async
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ MEJORA: Inicializamos Firebase aquí, antes que nada.
+  // Inicializamos Firebase aquí, antes que nada.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // ✅ MEJORA: Registramos el manejador de segundo plano lo antes posible.
+  // ✅ CAMBIO CLAVE: Inicializamos el servicio de anuncios de Google al arrancar.
+  await MobileAds.instance.initialize();
+
+  // Registramos el manejador de segundo plano lo antes posible.
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   runApp(MyApp(initialization: _initializeServices()));

@@ -1,8 +1,7 @@
-// lib/screens/bolsa_trabajo/editar_cv_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:safety_app/models/candidato_model.dart';
-import 'package:safety_app/services/airtable_service.dart';
+import 'package:safety_app/services/bolsa_trabajo_service.dart';
 
 class EditarCvScreen extends StatefulWidget {
   final Candidato candidato;
@@ -15,10 +14,9 @@ class EditarCvScreen extends StatefulWidget {
 
 class _EditarCvScreenState extends State<EditarCvScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _airtableService = AirtableService();
+  final _bolsaTrabajoService = BolsaTrabajoService();
   bool _isLoading = false;
 
-  // ✅ CAMBIO: Controladores para todos los campos editables
   late TextEditingController _nombreController;
   late TextEditingController _emailController;
   late TextEditingController _telefonoController;
@@ -27,26 +25,29 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
   late TextEditingController _ciudadController;
   late TextEditingController _resumenController;
 
-  // ✅ CAMBIO: Variable de estado para el dropdown
   String? _selectedNivelEstudios;
+  DateTime? _selectedDate;
 
   @override
   void initState() {
     super.initState();
-    // Pre-llenamos el formulario con los datos existentes del candidato
     _nombreController = TextEditingController(text: widget.candidato.nombre);
     _emailController = TextEditingController(text: widget.candidato.email);
     _telefonoController = TextEditingController(text: widget.candidato.telefono);
     _estadoController = TextEditingController(text: widget.candidato.estado);
     _ciudadController = TextEditingController(text: widget.candidato.ciudad);
     _resumenController = TextEditingController(text: widget.candidato.resumenCv);
+    _fechaNacimientoController = TextEditingController();
 
-    if (widget.candidato.fechaDeNacimiento != null) {
-      _fechaNacimientoController = TextEditingController(
-        text: DateFormat('dd-MM-yyyy').format(widget.candidato.fechaDeNacimiento!),
-      );
-    } else {
-      _fechaNacimientoController = TextEditingController();
+    // ✅ CORRECCIÓN: Se usa 'fechaNacimiento' (n minúscula)
+    if (widget.candidato.fechaNacimiento != null && widget.candidato.fechaNacimiento!.isNotEmpty) {
+      try {
+        _selectedDate = DateTime.parse(widget.candidato.fechaNacimiento!);
+        _fechaNacimientoController.text = DateFormat('dd-MM-yyyy').format(_selectedDate!);
+      } catch (e) {
+        // Manejar fecha en formato incorrecto si es necesario
+        debugPrint('Error al parsear fecha: $e');
+      }
     }
 
     _selectedNivelEstudios = widget.candidato.nivelDeEstudios;
@@ -56,12 +57,10 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Formateamos la fecha al formato que Airtable espera (yyyy-MM-dd)
-      final fechaNacimientoAirtable = _fechaNacimientoController.text.isNotEmpty
-          ? DateFormat('yyyy-MM-dd').format(DateFormat('dd-MM-yyyy').parse(_fechaNacimientoController.text))
+      final fechaNacimientoAirtable = _selectedDate != null
+          ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
           : null;
 
-      // ✅ CAMBIO: Mapa con todos los campos que se van a actualizar
       final Map<String, dynamic> fieldsToUpdate = {
         'Nombre_Completo': _nombreController.text,
         'Email': _emailController.text,
@@ -73,7 +72,7 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
         'Nivel_de_estudios': _selectedNivelEstudios,
       };
 
-      final success = await _airtableService.updateCandidatoProfile(
+      final success = await _bolsaTrabajoService.updateCandidatoProfile(
         widget.candidato.recordId,
         fieldsToUpdate,
       );
@@ -83,26 +82,38 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Perfil actualizado!')));
-        Navigator.of(context).pop(true); // Regresa a la pantalla anterior indicando que hubo cambios
+        Navigator.of(context).pop(true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al actualizar el perfil.')));
       }
     }
   }
 
-  // ✅ CAMBIO: Se añade la función para el selector de fecha
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: widget.candidato.fechaDeNacimiento ?? DateTime.now().subtract(const Duration(days: 365 * 20)),
+      initialDate: _selectedDate ?? DateTime.now().subtract(const Duration(days: 365 * 20)),
       firstDate: DateTime(1950),
       lastDate: DateTime.now(),
     );
-    if (picked != null) {
+    if (picked != null && picked != _selectedDate) {
       setState(() {
+        _selectedDate = picked;
         _fechaNacimientoController.text = DateFormat('dd-MM-yyyy').format(picked);
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _emailController.dispose();
+    _telefonoController.dispose();
+    _fechaNacimientoController.dispose();
+    _estadoController.dispose();
+    _ciudadController.dispose();
+    _resumenController.dispose();
+    super.dispose();
   }
 
   @override
@@ -120,7 +131,6 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
               const SizedBox(height: 16),
               TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email de Contacto*'), keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
               const SizedBox(height: 16),
-              // ✅ CAMBIO: Se añaden los nuevos campos al formulario
               TextFormField(controller: _telefonoController, decoration: const InputDecoration(labelText: 'Teléfono*'), keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
               const SizedBox(height: 16),
               TextFormField(
@@ -158,17 +168,5 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nombreController.dispose();
-    _emailController.dispose();
-    _telefonoController.dispose();
-    _fechaNacimientoController.dispose();
-    _estadoController.dispose();
-    _ciudadController.dispose();
-    _resumenController.dispose();
-    super.dispose();
   }
 }

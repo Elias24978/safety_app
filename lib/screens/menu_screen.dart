@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:safety_app/models/candidato_model.dart';
+import 'package:safety_app/models/empresa_model.dart';
 import 'package:safety_app/screens/dc3/dc3_main_screen.dart';
 import 'package:safety_app/screens/escritorio_screen.dart';
 import 'package:safety_app/screens/normas_stps_screen.dart';
@@ -8,6 +10,8 @@ import 'package:safety_app/screens/notificaciones_list_screen.dart';
 import 'package:safety_app/screens/placeholder_screen.dart';
 import 'package:safety_app/screens/profile_screen.dart';
 import 'package:safety_app/services/ad_manager.dart';
+// ✅ CAMBIO: Se elimina la importación del servicio antiguo
+import 'package:safety_app/services/bolsa_trabajo_service.dart'; // ✅ CAMBIO: Importamos el servicio correcto
 import 'package:safety_app/services/database_service.dart';
 import 'package:safety_app/screens/formatos_screen.dart';
 import 'package:safety_app/screens/bolsa_trabajo/role_selection_screen.dart';
@@ -70,10 +74,13 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   final AdManager _adManager = AdManager();
   final DatabaseService _databaseService = DatabaseService();
+  // ✅ CAMBIO: Instancia del nuevo servicio de bolsa de trabajo
+  final BolsaTrabajoService _bolsaTrabajoService = BolsaTrabajoService();
 
   int _bottomNavIndex = 0;
   User? _user;
   int _selectedGridIndex = -1;
+  String _userName = 'Usuario';
 
   final List<Map<String, dynamic>> _menuItems = [
     {'icon': FontAwesomeIcons.clipboardCheck, 'label': "Revisar Normas STPS"},
@@ -88,6 +95,34 @@ class _MenuScreenState extends State<MenuScreen> {
   void initState() {
     super.initState();
     _user = FirebaseAuth.instance.currentUser;
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    if (_user == null) return;
+
+    // ✅ CAMBIO: Se llama a los métodos desde la nueva instancia del servicio
+    Candidato? candidato = await _bolsaTrabajoService.getCandidatoProfile(_user!.uid);
+    if (candidato != null && candidato.nombre != 'Sin Nombre') {
+      if (mounted) {
+        setState(() => _userName = candidato.nombre.split(' ').first);
+      }
+      return;
+    }
+
+    Empresa? empresa = await _bolsaTrabajoService.getEmpresaProfile(_user!.uid);
+    if (empresa != null && empresa.nombreEmpresa != 'Sin Nombre') {
+      if (mounted) {
+        setState(() => _userName = empresa.nombreEmpresa);
+      }
+      return;
+    }
+
+    if (_user?.displayName != null && _user!.displayName!.isNotEmpty) {
+      if (mounted) {
+        setState(() => _userName = _user!.displayName!);
+      }
+    }
   }
 
   void _navigateToPlaceholder(String title) {
@@ -123,7 +158,6 @@ class _MenuScreenState extends State<MenuScreen> {
       }
     }
 
-    // ✅ CAMBIO: "Bolsa de Trabajo" se ha eliminado de esta lista.
     final itemsWithAds = [
       "Formatos",
       "Certificaciones DC3",
@@ -144,9 +178,7 @@ class _MenuScreenState extends State<MenuScreen> {
     if (index == _bottomNavIndex) return;
 
     if (index == 0) {
-      setState(() {
-        _bottomNavIndex = index;
-      });
+      setState(() => _bottomNavIndex = index);
       return;
     }
 
@@ -183,8 +215,6 @@ class _MenuScreenState extends State<MenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String displayName = _user?.displayName ?? 'Usuario';
-
     return Scaffold(
       backgroundColor: Colors.white,
       bottomNavigationBar: BottomNavigationBar(
@@ -209,7 +239,7 @@ class _MenuScreenState extends State<MenuScreen> {
             children: [
               const SizedBox(height: 20),
               Text(
-                "Hola $displayName",
+                "Hola $_userName",
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -239,9 +269,7 @@ class _MenuScreenState extends State<MenuScreen> {
                       label: item['label'],
                       isSelected: _selectedGridIndex == index,
                       onPressed: () {
-                        setState(() {
-                          _selectedGridIndex = index;
-                        });
+                        setState(() => _selectedGridIndex = index);
                         _onGridItemTapped(item['label']);
                       },
                     );
