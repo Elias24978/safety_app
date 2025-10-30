@@ -7,7 +7,7 @@ import 'package:safety_app/screens/bolsa_trabajo/empresa_profile_screen.dart';
 import 'package:safety_app/screens/bolsa_trabajo/role_selection_screen.dart';
 import 'package:safety_app/screens/bolsa_trabajo/tabs/reclutador_vacantes_tab.dart';
 import 'package:safety_app/screens/bolsa_trabajo/tabs/buscar_candidatos_tab.dart';
-import 'package:safety_app/screens/bolsa_trabajo/tabs/seguimiento_tab.dart';
+import 'package:safety_app/screens/bolsa_trabajo/reclutador/seguimiento_tab.dart';
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
 import 'package:safety_app/utils/dialogs.dart';
 

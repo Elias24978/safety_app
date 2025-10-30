@@ -5,7 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart'; // ✅ CAMBIO CLAVE: Importamos el paquete de anuncios
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:safety_app/models/app_notification.dart';
@@ -13,6 +13,11 @@ import 'package:safety_app/screens/notificacion_detail_screen.dart';
 import 'package:safety_app/screens/splash_screen.dart';
 import 'package:safety_app/services/notification_service.dart';
 import 'firebase_options.dart';
+
+// ✅ CAMBIO CLAVE: Importar Provider y los servicios
+import 'package:provider/provider.dart';
+import 'package:safety_app/services/airtable_service.dart';
+import 'package:safety_app/services/bolsa_trabajo_service.dart';
 
 // Clave global para manejar la navegación desde fuera del árbol de widgets.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -101,7 +106,21 @@ Future<void> main() async {
   // Registramos el manejador de segundo plano lo antes posible.
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  runApp(MyApp(initialization: _initializeServices()));
+  // ✅ CAMBIO CLAVE: Envolvemos la App en un MultiProvider
+  runApp(
+    MultiProvider(
+      providers: [
+        // Provider para el servicio de Airtable (Normas/Formatos)
+        Provider(create: (_) => AirtableService()),
+
+        // Provider para el servicio de Bolsa de Trabajo
+        Provider(create: (_) => BolsaTrabajoService()),
+
+        // Aquí puedes añadir más servicios si los necesitas en otras partes de la app
+      ],
+      child: MyApp(initialization: _initializeServices()),
+    ),
+  );
 }
 
 /// Widget raíz de la aplicación.

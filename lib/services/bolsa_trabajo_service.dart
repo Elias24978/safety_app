@@ -241,10 +241,10 @@ class BolsaTrabajoService {
     return [];
   }
 
-  // ✅ NUEVO: Obtiene aplicaciones en seguimiento para un reclutador.
+  // ✅ CAMBIO: Fórmula actualizada para ser más precisa.
   Future<List<Aplicacion>> getAplicacionesEnSeguimiento(String userIdReclutador) async {
-    // Esta fórmula filtra por el ID del reclutador y excluye las aplicaciones que aún no se han revisado.
-    final formula = "AND({UserID_Reclutador_Lookup} = '$userIdReclutador', {Estado_Aplicacion} != '✓ CV Recibido')";
+    // Filtra por ID de reclutador y solo los estados de seguimiento activo.
+    final formula = "AND({UserID_Reclutador_Lookup} = '$userIdReclutador', OR({Estado_Aplicacion} = '– En proceso', {Estado_Aplicacion} = '✓ Visto'))";
     final uri = _buildUri('Aplicaciones', filterByFormula: formula, sortField: 'Estado_Aplicacion', sortDirection: 'asc');
 
     try {
