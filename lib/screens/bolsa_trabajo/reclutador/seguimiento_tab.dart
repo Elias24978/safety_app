@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ AÑADIDO
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ Import correcto
 import 'package:safety_app/models/aplicacion_model.dart';
-// import 'package:safety_app/services/auth_service.dart'; // ❌ ELIMINADO
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
+
+// ✅ CAMBIO: Importamos la nueva pantalla de detalle que crearemos en el siguiente paso.
+import 'package:safety_app/screens/bolsa_trabajo/reclutador/detalle_aplicacion_screen.dart';
 
 class SeguimientoTab extends StatefulWidget {
   const SeguimientoTab({super.key});
@@ -23,7 +25,7 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
     _loadData();
   }
 
-  // Creamos un método async para obtener el UserID primero
+  // ✅ Método correcto para obtener el UserID de Firebase
   Future<void> _loadData() async {
     // Obtenemos el UserID directamente de FirebaseAuth
     final user = FirebaseAuth.instance.currentUser;
@@ -41,9 +43,8 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
             bolsaTrabajoService.getAplicacionesEnSeguimiento(_userIdReclutador);
         _isLoading = false;
       });
-
     } else {
-      // Manejar el caso donde el usuario no está logueado (aunque no debería llegar aquí)
+      // Manejar el caso donde el usuario no está logueado
       setState(() {
         _aplicacionesFuture = Future.value([]); // Futuro vacío
         _isLoading = false;
@@ -109,7 +110,10 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text('Error al cargar aplicaciones: ${snapshot.error}', textAlign: TextAlign.center,),
+                  child: Text(
+                    'Error al cargar aplicaciones: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               );
             }
@@ -144,7 +148,8 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
                     contentPadding: const EdgeInsets.symmetric(
                         vertical: 10.0, horizontal: 16.0),
                     leading: CircleAvatar(
-                      backgroundColor: _getStatusColor(aplicacion.estadoAplicacion),
+                      backgroundColor:
+                      _getStatusColor(aplicacion.estadoAplicacion),
                       child: Icon(
                         _getStatusIcon(aplicacion.estadoAplicacion),
                         color: Colors.black54,
@@ -157,6 +162,7 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
                         fontSize: 16,
                       ),
                     ),
+                    // ✅ CAMBIO: Añadido el teléfono y mejorado el overflow
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -164,11 +170,19 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
                         Text(
                           'Vacante: ${aplicacion.tituloVacante}',
                           style: TextStyle(color: Colors.grey.shade700),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Email: ${aplicacion.emailCandidato ?? 'No disponible'}',
                           style: TextStyle(color: Colors.grey.shade600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Tel: ${aplicacion.telefonoCandidato ?? 'No disponible'}',
+                          style: TextStyle(color: Colors.grey.shade600),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -177,14 +191,27 @@ class _SeguimientoTabState extends State<SeguimientoTab> {
                         aplicacion.estadoAplicacion,
                         style: const TextStyle(fontSize: 12),
                       ),
-                      backgroundColor: _getStatusColor(aplicacion.estadoAplicacion),
+                      backgroundColor:
+                      _getStatusColor(aplicacion.estadoAplicacion),
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
                     ),
                     isThreeLine: true,
-                    // TODO: Implementar navegación a DetalleCandidato
-                    // onTap: () {
-                    // ...
-                    // },
+                    // ✅ CAMBIO: Implementada la navegación a la pantalla de detalle
+                    onTap: () async {
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DetalleAplicacionScreen(
+                            aplicacion: aplicacion,
+                          ),
+                        ),
+                      );
+
+                      // Si se actualizó algo, refrescamos la lista al volver
+                      if (result == true && mounted) {
+                        _refreshAplicaciones();
+                      }
+                    },
                   ),
                 );
               },

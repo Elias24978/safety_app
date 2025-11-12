@@ -1,5 +1,3 @@
-// lib/screens/norma_list_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:safety_app/models/norma_model.dart';
 import 'package:safety_app/services/airtable_service.dart';
@@ -52,14 +50,14 @@ class _NormaListScreenState extends State<NormaListScreen> {
                 title: Text(norma.name),
                 trailing: norma.fileUrl != null ? const Icon(Icons.picture_as_pdf_outlined) : null,
                 onTap: () {
-                  // --- 2. AÑADE LA LÓGICA DE NAVEGACIÓN AQUÍ ---
                   if (norma.fileUrl != null) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => PdfViewerScreen(
                           fileUrl: norma.fileUrl!,
-                          normaName: norma.name,
+                          // ✅ CAMBIO: Se corrigió 'normaName' a 'fileName'
+                          fileName: norma.name,
                         ),
                       ),
                     );

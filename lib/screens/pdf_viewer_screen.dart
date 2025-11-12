@@ -9,10 +9,14 @@ import 'package:open_filex/open_filex.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String fileUrl;
-  final String normaName;
+  // ✅ CAMBIO: Renombrado a 'fileName' para ser genérico
+  final String fileName;
 
-  const PdfViewerScreen(
-      {super.key, required this.fileUrl, required this.normaName});
+  const PdfViewerScreen({
+    super.key,
+    required this.fileUrl,
+    required this.fileName, // ✅ CAMBIO
+  });
 
   @override
   State<PdfViewerScreen> createState() => _PdfViewerScreenState();
@@ -31,6 +35,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   /// Descarga el PDF UNA SOLA VEZ a un archivo temporal para la visualización.
   Future<void> _loadPdfIntoTempFile() async {
+    // Capturamos el context antes del await
+    final context = this.context;
+
     try {
       final response = await Dio().get(
         widget.fileUrl,
@@ -39,7 +46,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       final dir = await getTemporaryDirectory();
 
       // Sanitiza el nombre del archivo para evitar caracteres inválidos
-      final sanitizedFileName = widget.normaName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      // ✅ CAMBIO: Usa 'fileName'
+      final sanitizedFileName = widget.fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
       final file = File('${dir.path}/$sanitizedFileName.pdf');
 
       await file.writeAsBytes(response.data, flush: true);
@@ -64,8 +72,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   /// COPIA el archivo temporal a la carpeta pública de Descargas.
   Future<void> _copyFileToDownloads() async {
+    // Capturamos el context antes del await
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     if (_tempFilePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
           const SnackBar(content: Text('El archivo aún no está listo para guardar.')));
       return;
     }
@@ -86,7 +97,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         await safetyMexDir.create(recursive: true);
       }
 
-      final sanitizedFileName = widget.normaName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      // ✅ CAMBIO: Usa 'fileName'
+      final sanitizedFileName = widget.fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
       final newPath = '${safetyMexDir.path}/$sanitizedFileName.pdf';
 
       // Copia el archivo en lugar de volver a descargarlo
@@ -95,7 +107,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       if (!mounted) return;
 
       // SnackBar con acción para abrir el archivo
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: const Text('Guardado en la carpeta SafetyMex'),
           action: SnackBarAction(
@@ -110,7 +122,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     } catch (e) {
       debugPrint('Error al guardar el archivo: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('No se pudo guardar el archivo.')));
       }
     } finally {
@@ -122,7 +134,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   /// Maneja la lógica de permisos de almacenamiento para diferentes versiones de Android.
   Future<bool> _checkAndRequestPermission() async {
+    // Capturamos el context antes del await
+    final context = this.context;
     bool isGranted;
+
     if (Platform.isAndroid) {
       final deviceInfo = await DeviceInfoPlugin().androidInfo;
       // En Android 13+ (SDK 33+), no se necesita permiso para guardar en carpetas públicas.
@@ -131,7 +146,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       } else {
         var status = await Permission.storage.status;
         if (status.isPermanentlyDenied) {
-          _showSettingsDialog();
+          if (mounted) _showSettingsDialog(context); // Pasamos el context
           return false;
         }
         if (!status.isGranted) {
@@ -151,8 +166,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     return isGranted;
   }
 
-  void _showSettingsDialog() {
-    if (!mounted) return;
+  // ✅ CAMBIO: Pasamos el context como parámetro
+  void _showSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -180,7 +195,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.normaName),
+        // ✅ CAMBIO: Usa 'fileName'
+        title: Text(widget.fileName),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
@@ -202,7 +218,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
           if (_isSaving)
             Container(
-              color: Colors.black54, // ✅ Corrección de 'withOpacity'
+              color: Colors.black54,
               child: const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

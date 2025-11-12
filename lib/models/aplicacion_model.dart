@@ -1,3 +1,5 @@
+import 'dart:core';
+
 class Aplicacion {
   final String recordId;
   final String vacanteRecordId;
@@ -13,12 +15,18 @@ class Aplicacion {
   final DateTime fechaPublicacion;
   final String visibilidadOferta;
 
-  // ✅ CAMBIO: Datos del candidato que aplica
+  // ✅ Datos del candidato que aplica
   final String nombreCandidato;
   final String? emailCandidato;
   final String? telefonoCandidato;
   final String? cvUrlCandidato;
   final String? candidatoRecordId;
+
+  // ✅ CAMPOS NUEVOS AÑADIDOS
+  final String? estadoCandidato;
+  final String? ciudadCandidato;
+  final String? resumenProfesional;
+
 
   Aplicacion({
     required this.recordId,
@@ -35,12 +43,17 @@ class Aplicacion {
     required this.fechaPublicacion,
     required this.visibilidadOferta,
 
-    // ✅ CAMBIO: Datos del candidato añadidos al constructor
+    // ✅ Datos del candidato añadidos al constructor
     required this.nombreCandidato,
     this.emailCandidato,
     this.telefonoCandidato,
     this.cvUrlCandidato,
     this.candidatoRecordId,
+
+    // ✅ CAMPOS NUEVOS AÑADIDOS
+    this.estadoCandidato,
+    this.ciudadCandidato,
+    this.resumenProfesional,
   });
 
   factory Aplicacion.fromAirtable(Map<String, dynamic> record) {
@@ -58,12 +71,18 @@ class Aplicacion {
     final fechaPublicacionList = fields['Fecha_Publicacion_Lookup'] as List<dynamic>?;
     final visibilidadOfertaList = fields['Visibilidad_Oferta_Lookup'] as List<dynamic>?;
 
-    // ✅ CAMBIO: Lookups del Candidato
+    // ✅ Lookups del Candidato
     final candidatoRecordIdList = fields['Candidato'] as List<dynamic>?; // El campo de enlace
     final nombreCandidatoList = fields['Nombre_Candidato_Lookup'] as List<dynamic>?;
     final emailCandidatoList = fields['Email_Candidato_Lookup'] as List<dynamic>?;
     final telefonoCandidatoList = fields['Telefono_Candidato_Lookup'] as List<dynamic>?;
     final cvUrlCandidatoList = fields['CV_URL_Lookup'] as List<dynamic>?;
+
+    // ✅ CAMPOS NUEVOS AÑADIDOS: Lectura de Lookups
+    final estadoCandidatoList = fields['Estado_Candidato_Lookup'] as List<dynamic>?;
+    final ciudadCandidatoList = fields['Ciudad_Candidato_Lookup'] as List<dynamic>?;
+    final resumenList = fields['Resumen_Candidato_Lookup'] as List<dynamic>?;
+
 
     return Aplicacion(
       recordId: record['id'] ?? '',
@@ -80,12 +99,17 @@ class Aplicacion {
       fechaPublicacion: DateTime.parse(fechaPublicacionList?.isNotEmpty == true ? fechaPublicacionList![0] : DateTime.now().toIso8601String()),
       visibilidadOferta: visibilidadOfertaList?.isNotEmpty == true ? visibilidadOfertaList![0] : 'Oculta',
 
-      // ✅ CAMBIO: Asignación de datos del candidato
+      // ✅ Asignación de datos del candidato
       candidatoRecordId: candidatoRecordIdList?.isNotEmpty == true ? candidatoRecordIdList![0] : null,
       nombreCandidato: nombreCandidatoList?.isNotEmpty == true ? nombreCandidatoList![0] : 'Candidato anónimo',
       emailCandidato: emailCandidatoList?.isNotEmpty == true ? emailCandidatoList![0] : null,
       telefonoCandidato: telefonoCandidatoList?.isNotEmpty == true ? telefonoCandidatoList![0] : null,
       cvUrlCandidato: cvUrlCandidatoList?.isNotEmpty == true ? cvUrlCandidatoList![0] : null,
+
+      // ✅ CAMPOS NUEVOS AÑADIDOS: Asignación en constructor
+      estadoCandidato: estadoCandidatoList?.isNotEmpty == true ? estadoCandidatoList![0] : null,
+      ciudadCandidato: ciudadCandidatoList?.isNotEmpty == true ? ciudadCandidatoList![0] : null,
+      resumenProfesional: resumenList?.isNotEmpty == true ? resumenList![0] : 'Sin resumen profesional',
     );
   }
 }

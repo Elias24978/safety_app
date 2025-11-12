@@ -3,6 +3,9 @@ import 'package:safety_app/models/vacante_model.dart';
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
 import 'package:safety_app/screens/bolsa_trabajo/crear_editar_vacante_screen.dart';
 
+// ✅ CAMBIO: Importamos la nueva pantalla que mostrará la lista de candidatos
+import 'package:safety_app/screens/bolsa_trabajo/reclutador/detalle_vacante_reclutador_screen.dart';
+
 class ReclutadorVacantesTab extends StatefulWidget {
   final String userIdReclutador;
   final Function(Vacante) onEditVacante;
@@ -14,11 +17,9 @@ class ReclutadorVacantesTab extends StatefulWidget {
   });
 
   @override
-  // ✅ CAMBIO: Apunta a la nueva clase de estado pública
   State<ReclutadorVacantesTab> createState() => ReclutadorVacantesTabState();
 }
 
-// ✅ CAMBIO: La clase de estado ahora es pública (sin guion bajo)
 class ReclutadorVacantesTabState extends State<ReclutadorVacantesTab> {
   final BolsaTrabajoService _bolsaTrabajoService = BolsaTrabajoService();
   late Future<List<Vacante>> _misVacantesFuture;
@@ -26,10 +27,9 @@ class ReclutadorVacantesTabState extends State<ReclutadorVacantesTab> {
   @override
   void initState() {
     super.initState();
-    loadVacantes(); // ✅ CAMBIO: Llama al nuevo método público
+    loadVacantes();
   }
 
-  // ✅ CAMBIO: El método ahora es público para ser llamado desde el dashboard
   void loadVacantes() {
     setState(() {
       _misVacantesFuture = _bolsaTrabajoService.getMisVacantes(widget.userIdReclutador);
@@ -62,7 +62,7 @@ class ReclutadorVacantesTabState extends State<ReclutadorVacantesTab> {
 
           final vacantes = snapshot.data!;
           return RefreshIndicator(
-            onRefresh: () async => loadVacantes(), // ✅ CAMBIO: Llama al nuevo método público
+            onRefresh: () async => loadVacantes(),
             child: ListView.builder(
               padding: const EdgeInsets.all(12.0),
               itemCount: vacantes.length,
@@ -73,8 +73,28 @@ class ReclutadorVacantesTabState extends State<ReclutadorVacantesTab> {
                   child: ListTile(
                     title: Text(vacante.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('Estado: ${vacante.visibilidadOferta}'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => widget.onEditVacante(vacante),
+
+                    // ✅ CAMBIO: El 'trailing' ahora es un botón específico para editar
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      tooltip: 'Editar Vacante',
+                      onPressed: () => widget.onEditVacante(vacante),
+                    ),
+
+                    // ✅ CAMBIO: El 'onTap' principal ahora navega al detalle de la vacante (para ver candidatos)
+                    onTap: () async {
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DetalleVacanteReclutadorScreen(vacante: vacante),
+                        ),
+                      );
+
+                      // Si regresamos 'true' (ej. se actualizó algo), refrescamos la lista
+                      if (result == true) {
+                        loadVacantes();
+                      }
+                    },
                   ),
                 );
               },
@@ -89,7 +109,7 @@ class ReclutadorVacantesTabState extends State<ReclutadorVacantesTab> {
             MaterialPageRoute(builder: (context) => const CrearEditarVacanteScreen()),
           );
           if (result == true) {
-            loadVacantes(); // ✅ CAMBIO: Llama al nuevo método público
+            loadVacantes();
           }
         },
         label: const Text('Nueva Vacante'),

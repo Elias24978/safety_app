@@ -26,6 +26,7 @@ class BolsaTrabajoService {
   Map<String, String> get _headers => {'Authorization': 'Bearer $_apiKey', 'Content-Type': 'application/json'};
 
   // --- Métodos de Perfiles (Candidato y Empresa) ---
+
   Future<Candidato?> getCandidatoProfile(String userId) async {
     final uri = _buildUri('Candidatos', filterByFormula: "{UserID} = '$userId'");
     try {
@@ -227,7 +228,9 @@ class BolsaTrabajoService {
   }
 
   Future<List<Aplicacion>> getAplicacionesPorVacante(String vacanteRecordId) async {
-    final uri = _buildUri('Aplicaciones', filterByFormula: "{VacanteRecordID} = '$vacanteRecordId'", sortField: 'Fecha_Aplicacion', sortDirection: 'asc');
+    final formula = "FIND('$vacanteRecordId', ARRAYJOIN({VacanteRecordID})) > 0";
+    final uri = _buildUri('Aplicaciones', filterByFormula: formula, sortField: 'Fecha_Aplicacion', sortDirection: 'asc');
+
     try {
       final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
@@ -241,10 +244,11 @@ class BolsaTrabajoService {
     return [];
   }
 
-  // ✅ CAMBIO: Fórmula actualizada para ser más precisa.
   Future<List<Aplicacion>> getAplicacionesEnSeguimiento(String userIdReclutador) async {
-    // Filtra por ID de reclutador y solo los estados de seguimiento activo.
-    final formula = "AND({UserID_Reclutador_Lookup} = '$userIdReclutador', OR({Estado_Aplicacion} = '– En proceso', {Estado_Aplicacion} = '✓ Visto'))";
+
+    // ✅ CAMBIO: Corregido a "✓ CV Visto" para que coincida con tu Airtable
+    final formula = "AND({UserID_Reclutador_Vacante} = '$userIdReclutador', OR({Estado_Aplicacion} = '– En proceso', {Estado_Aplicacion} = '✓ CV Visto'))";
+
     final uri = _buildUri('Aplicaciones', filterByFormula: formula, sortField: 'Estado_Aplicacion', sortDirection: 'asc');
 
     try {
@@ -253,6 +257,8 @@ class BolsaTrabajoService {
         final data = json.decode(response.body);
         final List<dynamic> records = data['records'];
         return records.map((record) => Aplicacion.fromAirtable(record)).toList();
+      } else {
+        debugPrint('Error en getAplicacionesEnSeguimiento: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
       debugPrint('Error en getAplicacionesEnSeguimiento: $e');
@@ -261,8 +267,9 @@ class BolsaTrabajoService {
   }
 
   Future<bool> checkIfAlreadyApplied(String userId, String vacanteRecordId) async {
-    final formula = "AND({UserID_Candidato} = '$userId', {VacanteRecordID} = '$vacanteRecordId')";
+    final formula = "AND({UserID_Candidato} = '$userId', FIND('$vacanteRecordId', ARRAYJOIN({VacanteRecordID})) > 0)";
     final uri = _buildUri('Aplicaciones', filterByFormula: formula);
+
     try {
       final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
@@ -292,5 +299,34 @@ class BolsaTrabajoService {
       debugPrint('Error en createAplicacion: $e');
     }
     return false;
+  }
+
+  /// Actualiza el estado de una aplicación específica.
+  Future<bool> updateAplicacionStatus(String aplicacionRecordId, String nuevoEstado) async {
+    final uri = _buildUri('Aplicaciones');
+    final body = json.encode({
+      'records': [
+        {
+          'id': aplicacionRecordId,
+          'fields': {
+            'Estado_Aplicacion': nuevoEstado,
+          }
+        }
+      ]
+    });
+
+    try {
+      final response = await http.patch(uri, headers: _headers, body: body);
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        // El error 422 será capturado aquí
+        debugPrint('Error en updateAplicacionStatus: ${response.statusCode} ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error en updateAplicacionStatus: $e');
+      return false;
+    }
   }
 }

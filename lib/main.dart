@@ -14,7 +14,7 @@ import 'package:safety_app/screens/splash_screen.dart';
 import 'package:safety_app/services/notification_service.dart';
 import 'firebase_options.dart';
 
-// ✅ CAMBIO CLAVE: Importar Provider y los servicios
+// Imports de Provider y servicios
 import 'package:provider/provider.dart';
 import 'package:safety_app/services/airtable_service.dart';
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
@@ -24,6 +24,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 /// Navega a la pantalla de detalles de la notificación.
 void navigateToDetailScreen(Map<String, String?> payload) {
+  // ... (sin cambios)
   final notificationId = payload['notification_id'];
   if (notificationId != null && navigatorKey.currentState != null) {
     navigatorKey.currentState!.push(MaterialPageRoute(
@@ -35,6 +36,7 @@ void navigateToDetailScreen(Map<String, String?> payload) {
 /// Método que se ejecuta cuando se recibe una acción de notificación (ej. un toque).
 @pragma("vm:entry-point")
 Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
+  // ... (sin cambios)
   if (receivedAction.payload?['notification_id'] != null) {
     navigateToDetailScreen(receivedAction.payload!);
   }
@@ -43,11 +45,10 @@ Future<void> onActionReceivedMethod(ReceivedAction receivedAction) async {
 /// Manejador de mensajes de Firebase Cloud Messaging cuando la app está CERRADA.
 @pragma("vm:entry-point")
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Inicializamos los servicios básicos necesarios para que el handler funcione
+  // ... (sin cambios)
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Hive.initFlutter();
 
-  // Nos aseguramos de que el adaptador y la caja de Hive estén listos
   if (!Hive.isAdapterRegistered(AppNotificationAdapter().typeId)) {
     Hive.registerAdapter(AppNotificationAdapter());
   }
@@ -58,72 +59,99 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await NotificationService.saveAndShowNotification(message);
 }
 
-/// Inicializa todos los servicios necesarios para la aplicación de forma concurrente.
-Future<void> _initializeServices() async {
-  // Primer bloque de inicializaciones en paralelo.
+// ✅ CAMBIO: Servicios ESENCIALES para el arranque
+Future<void> _initializeCoreServices() async {
+  final stopwatch = Stopwatch()..start();
+  debugPrint("Core initialization started...");
+
+  // 1. Carga DotEnv e inicializa Hive
   await Future.wait([
     dotenv.load(fileName: ".env"),
     Hive.initFlutter(),
   ]);
 
+  // 2. Registra el adaptador de Hive
   Hive.registerAdapter(AppNotificationAdapter());
 
-  await Future.wait([
-    FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
-      appleProvider: AppleProvider.debug,
-    ),
-    Hive.openBox<AppNotification>('notifications'),
-  ]);
-
-  // Configuración de RevenueCat según la plataforma.
-  String revenueCatApiKey = "";
-  if (Platform.isAndroid) {
-    revenueCatApiKey = dotenv.env['REVENUECAT_API_KEY_ANDROID'] ?? '';
-  } else if (Platform.isIOS) {
-    revenueCatApiKey = dotenv.env['REVENUECAT_API_KEY_IOS'] ?? '';
+  // 3. ✅ CAMBIO: Activamos App Check aquí.
+  // Es vital que esto se ejecute ANTES de cualquier llamada a Firebase (Auth, Firestore, etc.)
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.debug, // O .playIntegrity en producción
+      appleProvider: AppleProvider.debug,     // O .appAttest en producción
+    );
+    debugPrint("  ✅ Firebase AppCheck activated.");
+  } catch (e) {
+    debugPrint("  ⚠️ Error activating AppCheck: $e");
   }
 
-  if (revenueCatApiKey.isNotEmpty) {
-    await Purchases.setLogLevel(LogLevel.debug);
-    await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
-  }
+  // (La caja de notificaciones se queda fuera, ¡lo cual es correcto!)
 
-  // Inicialización del servicio de notificaciones (listeners de primer plano, etc.).
-  await NotificationService.initialize();
+  debugPrint("✅ Core initialization finished: ${stopwatch.elapsedMilliseconds}ms total");
 }
+
+// ✅ FUNCIÓN DE SERVICIOS SECUNDARIOS
+Future<void> initializeSecondaryServices() async {
+  try {
+    final stopwatch = Stopwatch()..start();
+    debugPrint("Secondary initialization started...");
+
+    // ✅ CAMBIO: Quitamos AppCheck de aquí porque se movió a los servicios Core
+    await Future.wait([
+      MobileAds.instance.initialize(),
+      NotificationService.initialize(), // Esta función AHORA abrirá la caja de notificaciones
+      // FirebaseAppCheck.instance.activate(...) // <-- LÍNEA MOVIDA A _initializeCoreServices
+    ]);
+
+    debugPrint("  ✅ Ads & Notifications done: ${stopwatch.elapsedMilliseconds}ms");
+
+    // Configuración de RevenueCat
+    String revenueCatApiKey = "";
+    if (Platform.isAndroid) {
+      revenueCatApiKey = dotenv.env['REVENUECAT_API_KEY_ANDROID'] ?? '';
+    } else if (Platform.isIOS) {
+      revenueCatApiKey = dotenv.env['REVENUECAT_API_KEY_IOS'] ?? '';
+    }
+
+    if (revenueCatApiKey.isNotEmpty) {
+      await Purchases.setLogLevel(LogLevel.debug);
+      await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
+      debugPrint("  ✅ RevenueCat configured: ${stopwatch.elapsedMilliseconds}ms");
+    }
+
+    debugPrint("✅ Secondary initialization finished: ${stopwatch.elapsedMilliseconds}ms total");
+
+  } catch (e) {
+    debugPrint("Error during secondary initialization: $e");
+  }
+}
+
 
 /// Punto de entrada principal de la aplicación.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializamos Firebase aquí, antes que nada.
+  // Mantenemos solo Firebase.initializeApp aquí
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // ✅ CAMBIO CLAVE: Inicializamos el servicio de anuncios de Google al arrancar.
-  await MobileAds.instance.initialize();
-
-  // Registramos el manejador de segundo plano lo antes posible.
+  // Registramos el manejador de segundo plano
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // ✅ CAMBIO CLAVE: Envolvemos la App en un MultiProvider
+  // Pasamos los servicios CORE al SplashScreen
+  final coreServicesInitialization = _initializeCoreServices();
+
   runApp(
     MultiProvider(
       providers: [
-        // Provider para el servicio de Airtable (Normas/Formatos)
         Provider(create: (_) => AirtableService()),
-
-        // Provider para el servicio de Bolsa de Trabajo
         Provider(create: (_) => BolsaTrabajoService()),
-
-        // Aquí puedes añadir más servicios si los necesitas en otras partes de la app
       ],
-      child: MyApp(initialization: _initializeServices()),
+      child: MyApp(initialization: coreServicesInitialization),
     ),
   );
 }
 
-/// Widget raíz de la aplicación.
+/// Widget raíz de la aplicación. (Sin cambios)
 class MyApp extends StatelessWidget {
   final Future<void> initialization;
 
