@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+// ✅ Importamos Firebase Auth
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safety_app/models/candidato_model.dart';
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
 
@@ -31,21 +33,26 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Obtenemos el usuario actual para asegurar que el email coincida
+    final currentUser = FirebaseAuth.instance.currentUser;
+
     _nombreController = TextEditingController(text: widget.candidato.nombre);
-    _emailController = TextEditingController(text: widget.candidato.email);
+
+    // ✅ SEGURIDAD: Usamos el email de la sesión actual, o el del candidato como respaldo
+    _emailController = TextEditingController(text: currentUser?.email ?? widget.candidato.email);
+
     _telefonoController = TextEditingController(text: widget.candidato.telefono);
     _estadoController = TextEditingController(text: widget.candidato.estado);
     _ciudadController = TextEditingController(text: widget.candidato.ciudad);
     _resumenController = TextEditingController(text: widget.candidato.resumenCv);
     _fechaNacimientoController = TextEditingController();
 
-    // ✅ CORRECCIÓN: Se usa 'fechaNacimiento' (n minúscula)
     if (widget.candidato.fechaNacimiento != null && widget.candidato.fechaNacimiento!.isNotEmpty) {
       try {
         _selectedDate = DateTime.parse(widget.candidato.fechaNacimiento!);
         _fechaNacimientoController.text = DateFormat('dd-MM-yyyy').format(_selectedDate!);
       } catch (e) {
-        // Manejar fecha en formato incorrecto si es necesario
         debugPrint('Error al parsear fecha: $e');
       }
     }
@@ -63,7 +70,7 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
 
       final Map<String, dynamic> fieldsToUpdate = {
         'Nombre_Completo': _nombreController.text,
-        'Email': _emailController.text,
+        'Email': _emailController.text, // Se envía el mismo email verificado
         'Telefono': _telefonoController.text,
         'Fecha_de_Nacimiento': fechaNacimientoAirtable,
         'Estado': _estadoController.text,
@@ -129,7 +136,27 @@ class _EditarCvScreenState extends State<EditarCvScreen> {
             children: [
               TextFormField(controller: _nombreController, decoration: const InputDecoration(labelText: 'Nombre Completo*'), validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
               const SizedBox(height: 16),
-              TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email de Contacto*'), keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
+
+              // --- CAMPO DE EMAIL BLOQUEADO ---
+              TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email de Contacto*',
+                    // Estilo visual de solo lectura
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                    disabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    // Mantiene el borde por defecto si no está deshabilitado (aunque aquí siempre será readOnly)
+                    border: const OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  readOnly: true, // Impide la edición
+                  validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null
+              ),
+              // --------------------------------
+
               const SizedBox(height: 16),
               TextFormField(controller: _telefonoController, decoration: const InputDecoration(labelText: 'Teléfono*'), keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
               const SizedBox(height: 16),

@@ -5,7 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:safety_app/screens/bolsa_trabajo/candidato_dashboard_screen.dart';
-// ✅ CAMBIO: Se importa el servicio correcto
+// ✅ Importamos el servicio correcto
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
 
 class CrearCvScreen extends StatefulWidget {
@@ -17,7 +17,7 @@ class CrearCvScreen extends StatefulWidget {
 
 class _CrearCvScreenState extends State<CrearCvScreen> {
   final _formKey = GlobalKey<FormState>();
-  // ✅ CAMBIO: Se instancia el servicio correcto
+  // ✅ Instancia del servicio correcto
   final _bolsaTrabajoService = BolsaTrabajoService();
   bool _isLoading = false;
   File? _cvFile;
@@ -39,6 +39,7 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
   @override
   void initState() {
     super.initState();
+    // Pre-llenamos el email y nombre con los datos de Firebase Auth
     _emailController.text = FirebaseAuth.instance.currentUser?.email ?? '';
     _nombreController.text = FirebaseAuth.instance.currentUser?.displayName ?? '';
   }
@@ -117,7 +118,7 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
       final Map<String, dynamic> fields = {
         'UserID': user.uid,
         'Nombre_Completo': _nombreController.text,
-        'Email': _emailController.text,
+        'Email': _emailController.text, // Se enviará el email pre-cargado
         'Telefono': _telefonoController.text,
         'Fecha_de_Nacimiento': fechaNacimientoAirtable,
         'Sexo': _selectedSexo,
@@ -132,7 +133,7 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
 
       fields.removeWhere((key, value) => value == null || (value is String && value.isEmpty));
 
-      // ✅ CAMBIO: Se llama al método desde el servicio correcto
+      // ✅ Llamada al servicio correcto
       final success = await _bolsaTrabajoService.createCandidatoProfile(fields);
 
       if (!mounted) return;
@@ -174,9 +175,32 @@ class _CrearCvScreenState extends State<CrearCvScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(controller: _nombreController, decoration: const InputDecoration(labelText: 'Nombre Completo*'), validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
+              TextFormField(
+                  controller: _nombreController,
+                  decoration: const InputDecoration(labelText: 'Nombre Completo*'),
+                  validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null
+              ),
               const SizedBox(height: 16),
-              TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email de Contacto*'), keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
+
+              // --- CAMPO DE EMAIL BLOQUEADO ---
+              TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email de Contacto*',
+                    // Color de fondo para indicar que es solo lectura
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                    // Borde deshabilitado visualmente para reforzar que no es editable
+                    disabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  readOnly: true, // Esto impide la edición
+                  validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null
+              ),
+              // --------------------------------
+
               const SizedBox(height: 16),
               TextFormField(controller: _telefonoController, decoration: const InputDecoration(labelText: 'Teléfono*'), keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null),
               const SizedBox(height: 16),

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safety_app/models/empresa_model.dart';
 import 'package:safety_app/models/vacante_model.dart';
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
+// Asumimos que tienes este archivo de utilidades. Si no, usa ScaffoldMessenger directamente.
 import 'package:safety_app/utils/dialogs.dart';
 
 class CrearEditarVacanteScreen extends StatefulWidget {
@@ -100,8 +101,6 @@ class _CrearEditarVacanteScreenState extends State<CrearEditarVacanteScreen> {
       }
     }
   }
-
-  // ✅ ELIMINADO: Se quitó la función _onArchivar
 
   // Lógica para eliminar la vacante permanentemente
   Future<void> _onEliminar() async {
@@ -237,7 +236,6 @@ class _CrearEditarVacanteScreenState extends State<CrearEditarVacanteScreen> {
                 child: Text(widget.vacante == null ? 'Publicar Vacante' : 'Guardar Cambios'),
               ),
 
-              // ✅ CAMBIO: Se eliminó el botón de Archivar y el texto "Zona de Peligro"
               if (widget.vacante != null) ...[
                 const SizedBox(height: 24),
                 const Divider(thickness: 1),

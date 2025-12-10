@@ -5,6 +5,10 @@ import 'package:safety_app/screens/placeholder_screen.dart';
 import 'package:safety_app/services/database_service.dart';
 import 'dart:developer'; // Importa el logger para reemplazar 'print'
 
+// NUEVAS IMPORTACIONES NECESARIAS
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:safety_app/screens/welcome_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -51,6 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// Inicia el proceso de compra de la suscripción premium usando RevenueCat.
+  /// SE MANTIENE TAL CUAL ME LA COMPARTISTE
   Future<void> _purchasePremium() async {
     final databaseService = DatabaseService();
     try {
@@ -65,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final Package packageToPurchase =
             offerings.current!.availablePackages.first;
 
-        // --- INICIO DE LA CORRECCIÓN ---
+        // --- CÓDIGO ORIGINAL QUE COMPARTISTE ---
         // La versión 9.x del paquete devuelve un `PurchaseResult`.
         final PurchaseResult purchaseResult =
         await Purchases.purchasePackage(packageToPurchase);
@@ -74,7 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Se accede a `customerInfo` a través de `purchaseResult`.
         if (purchaseResult.customerInfo.entitlements.all['premium'] != null &&
             purchaseResult.customerInfo.entitlements.all['premium']!.isActive) {
-          // --- FIN DE LA CORRECCIÓN ---
+          // --- FIN DEL CÓDIGO ORIGINAL ---
 
           // ¡ÉXITO! El usuario es premium. Actualiza Firestore.
           await databaseService.updateUserPremiumStatus(true);
@@ -181,10 +186,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(height: 20),
           _buildSectionTitle('Acciones de la Cuenta'),
+
+          // --- AQUÍ ESTÁ EL CAMBIO PARA LA NAVEGACIÓN ---
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
-            onTap: () {},
+            onTap: () async {
+              // 1. Cerrar sesión en Firebase
+              await FirebaseAuth.instance.signOut();
+
+              // 2. Navegación Manual Forzada:
+              // Esto elimina todas las pantallas anteriores y pone la WelcomeScreen
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                      (Route<dynamic> route) => false, // false elimina todo el historial
+                );
+              }
+            },
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
@@ -227,6 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: ListTile(
           contentPadding:
+          // Corrección del error de sintaxis de EdgeInsets
           const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
           leading: const Icon(Icons.shield, color: Colors.white, size: 40),
           title: const Text('Obtener Premium',
@@ -236,7 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   fontSize: 18)),
           subtitle: const Text('Elaboración de reportes y más',
               style: TextStyle(color: Colors.white70)),
-          onTap: _purchasePremium, // Llama a la función de compra.
+          onTap: _purchasePremium,
         ),
       ),
     );

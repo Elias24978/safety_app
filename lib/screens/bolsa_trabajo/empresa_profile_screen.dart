@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safety_app/models/empresa_model.dart';
-// ✅ CAMBIO: Se importa el servicio correcto para la bolsa de trabajo
+// ✅ Importamos el servicio correcto para la bolsa de trabajo
 import 'package:safety_app/services/bolsa_trabajo_service.dart';
 import 'package:safety_app/utils/dialogs.dart';
 
@@ -15,7 +15,7 @@ class EmpresaProfileScreen extends StatefulWidget {
 
 class _EmpresaProfileScreenState extends State<EmpresaProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  // ✅ CAMBIO: Se instancia el servicio correcto
+  // ✅ Instancia del servicio correcto
   final BolsaTrabajoService _bolsaTrabajoService = BolsaTrabajoService();
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
@@ -29,7 +29,13 @@ class _EmpresaProfileScreenState extends State<EmpresaProfileScreen> {
   void initState() {
     super.initState();
     _nombreEmpresaController = TextEditingController(text: widget.empresa?.nombreEmpresa ?? '');
-    _emailEmpresaController = TextEditingController(text: widget.empresa?.emailEmpresa ?? currentUser?.email ?? '');
+
+    // Lógica de seguridad: Si ya existe un email guardado, lo usamos.
+    // Si no, usamos el email de la cuenta autenticada actual.
+    _emailEmpresaController = TextEditingController(
+        text: widget.empresa?.emailEmpresa ?? currentUser?.email ?? ''
+    );
+
     _telefonoController = TextEditingController(text: widget.empresa?.telefono ?? '');
   }
 
@@ -56,17 +62,17 @@ class _EmpresaProfileScreenState extends State<EmpresaProfileScreen> {
     final Map<String, dynamic> fields = {
       'UserID_Creador': currentUser!.uid,
       'Nombre_Empresa': _nombreEmpresaController.text,
-      'Email_Empresa': _emailEmpresaController.text,
+      'Email_Empresa': _emailEmpresaController.text, // Se envía el email bloqueado
       'telefono': _telefonoController.text.isNotEmpty ? _telefonoController.text : null,
     };
 
     try {
       bool success;
       if (widget.empresa == null) {
-        // ✅ CAMBIO: Se llama al método desde la nueva variable de servicio
+        // ✅ Llamada al servicio correcto
         success = await _bolsaTrabajoService.createEmpresaProfile(fields);
       } else {
-        // ✅ CAMBIO: Se llama al método desde la nueva variable de servicio
+        // ✅ Llamada al servicio correcto
         success = await _bolsaTrabajoService.updateEmpresaProfile(widget.empresa!.recordId, fields);
       }
 
@@ -106,16 +112,31 @@ class _EmpresaProfileScreenState extends State<EmpresaProfileScreen> {
                 validator: (value) => value == null || value.isEmpty ? 'Este campo es obligatorio.' : null,
               ),
               const SizedBox(height: 16),
+
+              // --- CAMPO DE EMAIL BLOQUEADO ---
               TextFormField(
                 controller: _emailEmpresaController,
-                decoration: const InputDecoration(labelText: 'Email de Contacto', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: 'Email de Contacto',
+                  border: const OutlineInputBorder(),
+                  // Estilo visual de solo lectura
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  disabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
                 keyboardType: TextInputType.emailAddress,
+                readOnly: true, // Impide la edición
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Este campo es obligatorio.';
+                  // Validación extra por si acaso, aunque al ser readOnly del Auth debería estar bien
                   if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return 'Por favor, ingresa un email válido.';
                   return null;
                 },
               ),
+              // --------------------------------
+
               const SizedBox(height: 16),
               TextFormField(
                 controller: _telefonoController,

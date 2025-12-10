@@ -10,6 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_riverpod: ^2.5.1
+  google_sign_in: ^6.2.1
+  youtube_player_flutter: ^9.1.1
+  confetti: ^0.7.0
 
   # --- PAQUETES CON VERSIONES CORREGIDAS ---
   # Se usa la versión estable de pub.dev, no la de Git.

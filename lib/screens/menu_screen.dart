@@ -10,11 +10,13 @@ import 'package:safety_app/screens/notificaciones_list_screen.dart';
 import 'package:safety_app/screens/placeholder_screen.dart';
 import 'package:safety_app/screens/profile_screen.dart';
 import 'package:safety_app/services/ad_manager.dart';
-// ✅ CAMBIO: Se elimina la importación del servicio antiguo
-import 'package:safety_app/services/bolsa_trabajo_service.dart'; // ✅ CAMBIO: Importamos el servicio correcto
+import 'package:safety_app/services/bolsa_trabajo_service.dart';
 import 'package:safety_app/services/database_service.dart';
 import 'package:safety_app/screens/formatos_screen.dart';
 import 'package:safety_app/screens/bolsa_trabajo/role_selection_screen.dart';
+import 'package:safety_app/screens/comunidad/comunidad_screen.dart';
+// ✅ IMPORTACIÓN NUEVA: Pantalla de Compras
+import 'package:safety_app/screens/compras/compras_screen.dart';
 
 class MenuButton extends StatelessWidget {
   final IconData icon;
@@ -74,7 +76,6 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   final AdManager _adManager = AdManager();
   final DatabaseService _databaseService = DatabaseService();
-  // ✅ CAMBIO: Instancia del nuevo servicio de bolsa de trabajo
   final BolsaTrabajoService _bolsaTrabajoService = BolsaTrabajoService();
 
   int _bottomNavIndex = 0;
@@ -82,13 +83,15 @@ class _MenuScreenState extends State<MenuScreen> {
   int _selectedGridIndex = -1;
   String _userName = 'Usuario';
 
+  // Lista de botones del menú
   final List<Map<String, dynamic>> _menuItems = [
     {'icon': FontAwesomeIcons.clipboardCheck, 'label': "Revisar Normas STPS"},
     {'icon': FontAwesomeIcons.solidFileLines, 'label': "Formatos"},
     {'icon': FontAwesomeIcons.certificate, 'label': "Certificaciones DC3"},
     {'icon': FontAwesomeIcons.briefcase, 'label': "Bolsa de Trabajo"},
-    {'icon': FontAwesomeIcons.blog, 'label': "Blog"},
-    {'icon': FontAwesomeIcons.cartShopping, 'label': "Compras"},
+    {'icon': FontAwesomeIcons.users, 'label': "Comunidad"},
+    // ✅ CAMBIO: Nombre actualizado a "Marketplace"
+    {'icon': FontAwesomeIcons.shop, 'label': "Marketplace"},
   ];
 
   @override
@@ -101,7 +104,6 @@ class _MenuScreenState extends State<MenuScreen> {
   Future<void> _loadUserName() async {
     if (_user == null) return;
 
-    // ✅ CAMBIO: Se llama a los métodos desde la nueva instancia del servicio
     Candidato? candidato = await _bolsaTrabajoService.getCandidatoProfile(_user!.uid);
     if (candidato != null && candidato.nombre != 'Sin Nombre') {
       if (mounted) {
@@ -152,6 +154,15 @@ class _MenuScreenState extends State<MenuScreen> {
       else if (label == "Bolsa de Trabajo") {
         Navigator.push(
             context, MaterialPageRoute(builder: (context) => const RoleSelectionScreen()));
+      }
+      else if (label == "Comunidad") {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const ComunidadScreen()));
+      }
+      // ✅ CAMBIO: Navegación conectada a ComprasScreen
+      else if (label == "Marketplace") {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const ComprasScreen()));
       }
       else {
         _navigateToPlaceholder(label);
