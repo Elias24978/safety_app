@@ -15,7 +15,6 @@ import 'package:safety_app/services/database_service.dart';
 import 'package:safety_app/screens/formatos_screen.dart';
 import 'package:safety_app/screens/bolsa_trabajo/role_selection_screen.dart';
 import 'package:safety_app/screens/comunidad/comunidad_screen.dart';
-// ✅ IMPORTACIÓN NUEVA: Pantalla de Compras
 import 'package:safety_app/screens/compras/compras_screen.dart';
 
 class MenuButton extends StatelessWidget {
@@ -65,7 +64,6 @@ class MenuButton extends StatelessWidget {
   }
 }
 
-
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
 
@@ -90,7 +88,6 @@ class _MenuScreenState extends State<MenuScreen> {
     {'icon': FontAwesomeIcons.certificate, 'label': "Certificaciones DC3"},
     {'icon': FontAwesomeIcons.briefcase, 'label': "Bolsa de Trabajo"},
     {'icon': FontAwesomeIcons.users, 'label': "Comunidad"},
-    // ✅ CAMBIO: Nombre actualizado a "Marketplace"
     {'icon': FontAwesomeIcons.shop, 'label': "Marketplace"},
   ];
 
@@ -159,7 +156,6 @@ class _MenuScreenState extends State<MenuScreen> {
         Navigator.push(
             context, MaterialPageRoute(builder: (context) => const ComunidadScreen()));
       }
-      // ✅ CAMBIO: Navegación conectada a ComprasScreen
       else if (label == "Marketplace") {
         Navigator.push(
             context, MaterialPageRoute(builder: (context) => const ComprasScreen()));
@@ -195,6 +191,7 @@ class _MenuScreenState extends State<MenuScreen> {
 
     switch (index) {
       case 1:
+      // Restaurado: Lógica del Escritorio (Dashboard)
         _databaseService.isUserPremiumStream.first.then((isPremium) {
           if (!mounted) return;
 

@@ -1,21 +1,27 @@
 class Curso {
-  // --- DATOS PÚBLICOS (Origen: Airtable) ---
-  final String id; // ID único: RECORD_ID() de Airtable == ID del Documento en Firestore
+  // --- DATOS PÚBLICOS (Vitrina - Airtable) ---
+  final String id;
   final String titulo;
   final String descripcionCorta;
   final String descripcionLarga;
   final double precioMXN;
   final String imagenPortadaUrl;
   final String videoTrailerUrl;
-  final String nombreInstructor;
+  final String nombreInstructor; // Ahora almacenará el Código del Instructor
   final String categoria;
   final double rating;
-  final String estado; // 'Publicado', 'Borrador'
+  final String estado;
 
-  // --- DATOS PRIVADOS (Origen: Firebase Firestore) ---
-  // Estos campos son null hasta que se verifica la compra
+  // --- DATOS DC-3 (Airtable) ---
+  final int duracionHoras;
+  final String areaTematicaClave;
+  final String nombreAgenteCapacitador;
+  final String registroAgenteSTPS;
+
+  // --- DATOS PRIVADOS (Firestore) ---
   final List<Modulo>? temario;
-  final bool comprado; // Flag local para controlar la UI (candado vs. play)
+  final bool comprado;
+  final bool completado;
 
   Curso({
     required this.id,
@@ -29,18 +35,43 @@ class Curso {
     required this.categoria,
     required this.rating,
     required this.estado,
+    this.duracionHoras = 4,
+    this.areaTematicaClave = "6000",
+    this.nombreAgenteCapacitador = "Safety App Capacitación",
+    this.registroAgenteSTPS = "",
     this.temario,
     this.comprado = false,
+    this.completado = false,
   });
 
-  // Constructor Factory: Crea una instancia "ligera" desde Airtable
   factory Curso.fromAirtable(Map<String, dynamic> record) {
     final fields = record['fields'] ?? {};
 
-    // Manejo robusto de imagen: Airtable devuelve un array de attachments
-    String portadaUrl = 'https://via.placeholder.com/300'; // Fallback
+    // --- LÓGICA DE IMAGEN ---
+    String portadaUrl = 'https://via.placeholder.com/300';
     if (fields['Imagen_Portada'] is List && fields['Imagen_Portada'].isNotEmpty) {
       portadaUrl = fields['Imagen_Portada'][0]['url'];
+    }
+
+    // --- LÓGICA DE CÓDIGO INSTRUCTOR (Antes Instructor) ---
+    // Cambio: Ahora buscamos la columna "Codigo_Instructor" en la tabla "Cursos_Publicado"
+    var rawCodigo = fields['Codigo_Instructor'];
+    String codigoFinal = 'SAF-GEN'; // Valor por defecto si está vacío
+
+    if (rawCodigo is String && rawCodigo.isNotEmpty) {
+      codigoFinal = rawCodigo;
+    } else if (rawCodigo is List && rawCodigo.isNotEmpty) {
+      codigoFinal = rawCodigo[0].toString();
+    }
+
+    // --- LÓGICA DE AGENTE ---
+    var rawAgente = fields['Nombre_Agente_Capacitador'];
+    String agenteFinal = 'Safety App Capacitación';
+
+    if (rawAgente is List && rawAgente.isNotEmpty) {
+      agenteFinal = rawAgente[0].toString();
+    } else if (rawAgente is String && rawAgente.isNotEmpty) {
+      agenteFinal = rawAgente;
     }
 
     return Curso(
@@ -48,81 +79,98 @@ class Curso {
       titulo: fields['Titulo'] ?? 'Curso sin título',
       descripcionCorta: fields['Descripcion_Corta'] ?? '',
       descripcionLarga: fields['Descripcion_Larga'] ?? '',
-      // Uso de 'num?' para aceptar tanto int como double sin error
-      precioMXN: (fields['Precio_MXN'] as num?)?.toDouble() ?? 0.0,
+
+      precioMXN: (fields['Precio'] as num?)?.toDouble() ?? 0.0,
+
       imagenPortadaUrl: portadaUrl,
       videoTrailerUrl: fields['Video_Trailer'] ?? '',
-      nombreInstructor: fields['Nombre_Instructor'] ?? 'Instructor Safety',
+
+      // Asignamos el CÓDIGO al campo nombreInstructor
+      nombreInstructor: codigoFinal,
+
       categoria: fields['Categoria'] ?? 'General',
       rating: (fields['Rating'] as num?)?.toDouble() ?? 5.0,
       estado: fields['Estado'] ?? 'Borrador',
-      comprado: false, // Por defecto, al venir de Airtable, no está "validado" aún
+      duracionHoras: (fields['Duracion_Horas'] as num?)?.toInt() ?? 4,
+      areaTematicaClave: fields['Area_Tematica_Clave'] ?? '6000',
+
+      nombreAgenteCapacitador: agenteFinal,
+
+      registroAgenteSTPS: fields['Registro_Agente_STPS'] ?? '',
+      comprado: false,
+      completado: false,
       temario: null,
     );
   }
 
-  // Método de Fusión: Crea una copia del curso inyectando los datos de Firestore
   Curso copyWithPrivateData({
     List<Modulo>? temario,
     bool? comprado,
+    bool? completado,
   }) {
     return Curso(
-      id: id,
-      titulo: titulo,
-      descripcionCorta: descripcionCorta,
-      descripcionLarga: descripcionLarga,
-      precioMXN: precioMXN,
-      imagenPortadaUrl: imagenPortadaUrl,
-      videoTrailerUrl: videoTrailerUrl,
-      nombreInstructor: nombreInstructor,
-      categoria: categoria,
-      rating: rating,
-      estado: estado,
+      id: this.id,
+      titulo: this.titulo,
+      descripcionCorta: this.descripcionCorta,
+      descripcionLarga: this.descripcionLarga,
+      precioMXN: this.precioMXN,
+      imagenPortadaUrl: this.imagenPortadaUrl,
+      videoTrailerUrl: this.videoTrailerUrl,
+      nombreInstructor: this.nombreInstructor,
+      categoria: this.categoria,
+      rating: this.rating,
+      estado: this.estado,
+      duracionHoras: this.duracionHoras,
+      areaTematicaClave: this.areaTematicaClave,
+      nombreAgenteCapacitador: this.nombreAgenteCapacitador,
+      registroAgenteSTPS: this.registroAgenteSTPS,
       temario: temario ?? this.temario,
       comprado: comprado ?? this.comprado,
+      completado: completado ?? this.completado,
     );
   }
 }
 
-// --- SUB-MODELOS (Estructura interna del JSON de Firestore) ---
-
 class Modulo {
   final String titulo;
   final List<Leccion> lecciones;
-
   Modulo({required this.titulo, required this.lecciones});
-
   factory Modulo.fromJson(Map<String, dynamic> json) {
     return Modulo(
       titulo: json['modulo_titulo'] ?? 'Módulo',
-      lecciones: (json['lecciones'] as List?)
-          ?.map((x) => Leccion.fromJson(x))
-          .toList() ?? [],
+      lecciones: (json['lecciones'] as List?)?.map((x) => Leccion.fromJson(x)).toList() ?? [],
     );
   }
 }
 
 class Leccion {
   final String titulo;
-  final String tipo; // 'video', 'pdf', 'examen'
-  final String url; // URL del recurso (Storage o Link externo)
+  final String tipo;
+  final String url;
   final int duracionMinutos;
-  // Puedes agregar 'completada' aquí si quieres trackear progreso localmente en el futuro
-
-  Leccion({
-    required this.titulo,
-    required this.tipo,
-    required this.url,
-    this.duracionMinutos = 0,
-  });
-
+  final List<Pregunta>? preguntas;
+  Leccion({required this.titulo, required this.tipo, required this.url, this.duracionMinutos = 0, this.preguntas});
   factory Leccion.fromJson(Map<String, dynamic> json) {
     return Leccion(
       titulo: json['titulo'] ?? 'Lección',
       tipo: json['tipo'] ?? 'video',
       url: json['url'] ?? '',
-      // Robustez: Convierte cualquier número (int/double) a int de forma segura
       duracionMinutos: (json['duracion'] as num?)?.toInt() ?? 0,
+      preguntas: (json['preguntas'] as List?)?.map((x) => Pregunta.fromJson(x)).toList(),
+    );
+  }
+}
+
+class Pregunta {
+  final String pregunta;
+  final List<String> opciones;
+  final int indiceRespuestaCorrecta;
+  Pregunta({required this.pregunta, required this.opciones, required this.indiceRespuestaCorrecta});
+  factory Pregunta.fromJson(Map<String, dynamic> json) {
+    return Pregunta(
+      pregunta: json['pregunta'] ?? '¿Pregunta vacía?',
+      opciones: List<String>.from(json['opciones'] ?? []),
+      indiceRespuestaCorrecta: (json['correcta'] as num?)?.toInt() ?? 0,
     );
   }
 }

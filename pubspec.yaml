@@ -28,6 +28,8 @@ dependencies:
 
   # --- PAQUETES DE SYNCFUSION (estables) ---
   syncfusion_flutter_pdf: ^26.2.4
+  google_fonts: ^6.1.0
+  flutter_email_sender: ^6.0.2
 
   # --- RESTO DE TUS DEPENDENCIAS (sin cambios) ---
   firebase_core: ^4.0.0

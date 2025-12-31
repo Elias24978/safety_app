@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-// SOLUCIÓN: Usamos imports absolutos 'package:safety_app/...' para evitar errores de ruta relativa
 import 'package:safety_app/models/curso_model.dart';
 import 'package:safety_app/services/marketplace_service.dart';
-import 'detalle_curso_screen.dart'; // Asumimos que este archivo también está en la carpeta 'compras'
+import 'package:safety_app/screens/compras/detalle_curso_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ComprasScreen extends StatefulWidget {
   const ComprasScreen({super.key});
@@ -35,6 +35,59 @@ class _ComprasScreenState extends State<ComprasScreen> with SingleTickerProvider
     super.dispose();
   }
 
+  // --- LÓGICA DE CONTACTO PARA INSTRUCTORES ---
+  Future<void> _contactarParaInstructor() async {
+    const String emailSoporte = "masterindustrialsafety@gmail.com";
+
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: emailSoporte,
+      query: _encodeQueryParameters({
+        'subject': 'Solicitud para ser Instructor - SafetyApp',
+        'body': 'Hola equipo de SafetyApp,\n\nMe gustaría obtener información sobre cómo publicar mis cursos en su plataforma.\n\nMis datos son:\n- Nombre:\n- Especialidad:\n',
+      }),
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró una aplicación de correo disponible.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al intentar abrir correo: $e')),
+      );
+    }
+  }
+
+  String? _encodeQueryParameters(Map<String, String> params) {
+    return params.entries
+        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+  }
+
+  // --- LÓGICA DE BÚSQUEDA ---
+  void _abrirBusqueda() async {
+    try {
+      final cursos = await _cursosFuture;
+      if (!mounted) return;
+
+      showSearch(
+        context: context,
+        delegate: CourseSearchDelegate(cursos),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Espere a que carguen los cursos para buscar.")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -47,9 +100,25 @@ class _ComprasScreenState extends State<ComprasScreen> with SingleTickerProvider
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Catálogo de Cursos',
+          'Marketplace',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        // BOTÓN DE BÚSQUEDA
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.search, color: Colors.black87),
+              tooltip: "Buscar Curso",
+              onPressed: _abrirBusqueda,
+            ),
+          )
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF0D47A1),
@@ -58,18 +127,15 @@ class _ComprasScreenState extends State<ComprasScreen> with SingleTickerProvider
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           tabs: const [
-            Tab(text: 'Normatividad STPS'),
-            Tab(text: 'Seguridad Patrimonial'),
+            Tab(text: 'Cursos'),
+            Tab(text: 'Productos Físicos'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Pestaña 1: Cursos desde el Servicio
           _ListaCursosSTPS(cursosFuture: _cursosFuture),
-
-          // Pestaña 2: Placeholder
           const Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -82,13 +148,33 @@ class _ComprasScreenState extends State<ComprasScreen> with SingleTickerProvider
           ),
         ],
       ),
+      // BOTÓN FLOTANTE PARA INSTRUCTORES
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _contactarParaInstructor,
+        backgroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+          side: const BorderSide(color: Colors.green, width: 1.5),
+        ),
+        icon: const Icon(Icons.school, color: Colors.green, size: 28),
+        label: const Text(
+          "¿Quieres ser\ninstructor?",
+          textAlign: TextAlign.start,
+          style: TextStyle(
+              color: Colors.green,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              height: 1.1
+          ),
+        ),
+      ),
     );
   }
 }
 
 class _ListaCursosSTPS extends StatelessWidget {
   final Future<List<Curso>> cursosFuture;
-
   const _ListaCursosSTPS({required this.cursosFuture});
 
   @override
@@ -99,51 +185,19 @@ class _ListaCursosSTPS extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD143)));
         } else if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 50, color: Colors.red),
-                  const SizedBox(height: 10),
-                  Text('Error al cargar cursos:\n${snapshot.error}', textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          );
+          return Center(child: Text('Error: ${snapshot.error}'));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off, size: 50, color: Colors.grey),
-                SizedBox(height: 10),
-                Text('No hay cursos disponibles por el momento.'),
-              ],
-            ),
-          );
+          return const Center(child: Text('No hay cursos disponibles.'));
         }
 
         final cursos = snapshot.data!;
-
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: cursos.length + 1,
+          itemCount: cursos.length,
           itemBuilder: (context, index) {
-            if (index == 0) {
-              return const Padding(
-                padding: EdgeInsets.only(bottom: 16),
-                child: Text(
-                  "Datos del Programa de capacitación, adiestramiento y productividad",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF37474F)),
-                ),
-              );
-            }
-            final curso = cursos[index - 1];
             return Padding(
               padding: const EdgeInsets.only(bottom: 20),
-              child: _SafetyCourseCard(curso: curso),
+              child: _SafetyCourseCard(curso: cursos[index]),
             );
           },
         );
@@ -154,7 +208,6 @@ class _ListaCursosSTPS extends StatelessWidget {
 
 class _SafetyCourseCard extends StatelessWidget {
   final Curso curso;
-
   const _SafetyCourseCard({required this.curso});
 
   @override
@@ -165,9 +218,7 @@ class _SafetyCourseCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            // CORRECCIÓN: Se reemplazó .withOpacity(0.1) por .withValues(alpha: 0.1)
-            // Esto cumple con las nuevas guías de estilo de Flutter para evitar pérdida de precisión de color.
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           )
@@ -190,120 +241,60 @@ class _SafetyCourseCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: 3,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Breve descripción:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      Text(
-                        curso.descripcionCorta,
-                        style: const TextStyle(fontSize: 12, color: Colors.black87),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(curso.descripcionCorta, maxLines: 3, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 8),
-                      const _DatoFila(icon: Icons.timer, texto: "Duración en temario"),
-                      const SizedBox(height: 4),
-                      _DatoFila(icon: Icons.badge, texto: "Instructor: ${curso.nombreInstructor}"),
-                      const SizedBox(height: 8),
+                      // ✅ CAMBIO VISUAL: Muestra el CÓDIGO con icono de gafete
                       Row(
                         children: [
-                          ...List.generate(5, (index) {
-                            return Icon(
-                              index < curso.rating ? Icons.star : Icons.star_border,
-                              color: Colors.amber,
-                              size: 16,
-                            );
-                          }),
+                          const Icon(Icons.badge_outlined, size: 14, color: Colors.grey),
                           const SizedBox(width: 4),
-                          Text(curso.rating.toString(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+                          Expanded(
+                            child: Text(
+                              "Instructor: ${curso.nombreInstructor}",
+                              style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => DetalleCursoScreen(cursoInicial: curso)),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFD143),
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                              elevation: 3,
-                            ),
-                            child: const Text("Inscríbete Ahora", style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                          Positioned(
-                            top: -10,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.blue, width: 1),
-                              ),
-                              child: Text(
-                                "MX\$${curso.precioMXN.toStringAsFixed(2)}",
-                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w900, fontSize: 11),
-                              ),
-                            ),
-                          )
-                        ],
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => DetalleCursoScreen(cursoInicial: curso)),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD143)),
+                        child: const Text("Ver Detalles", style: TextStyle(color: Colors.black)),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.grey[200],
-                      image: curso.imagenPortadaUrl.isNotEmpty
-                          ? DecorationImage(
-                        image: NetworkImage(curso.imagenPortadaUrl),
-                        fit: BoxFit.cover,
-                        onError: (e, s) {}, // Sintaxis limpia para manejo de errores
-                      )
-                          : null,
+                if (curso.imagenPortadaUrl.isNotEmpty)
+                  Expanded(
+                    flex: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          curso.imagenPortadaUrl,
+                          height: 100,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                        ),
+                      ),
                     ),
-                    child: curso.imagenPortadaUrl.isEmpty
-                        ? const Center(child: Icon(Icons.image_not_supported, color: Colors.grey))
-                        : null,
                   ),
-                ),
               ],
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CotizacionEmpresarialScreen()),
-                );
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFB8860B), width: 2),
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-              child: const Text("Cotización Empresarial", style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -312,44 +303,69 @@ class _SafetyCourseCard extends StatelessWidget {
   }
 }
 
-class _DatoFila extends StatelessWidget {
-  final IconData icon;
-  final String texto;
-  const _DatoFila({required this.icon, required this.texto});
+// CLASE DELEGADA PARA LA BÚSQUEDA
+class CourseSearchDelegate extends SearchDelegate {
+  final List<Curso> cursos;
+
+  CourseSearchDelegate(this.cursos);
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Expanded(child: Text(texto, style: TextStyle(fontSize: 11, color: Colors.grey[800]), overflow: TextOverflow.ellipsis)),
-      ],
+  String get searchFieldLabel => 'Buscar cursos...';
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.clear),
+        onPressed: () => query = '',
+      ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, null),
     );
   }
-}
-
-class CotizacionEmpresarialScreen extends StatelessWidget {
-  const CotizacionEmpresarialScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Cotización para Empresas")),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.business, size: 80, color: Color(0xFFD4AF37)),
-            SizedBox(height: 20),
-            Text(
-              "Módulo de Cotización\n(En Construcción)",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults();
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults();
+  }
+
+  Widget _buildSearchResults() {
+    if (query.isEmpty) {
+      return const Center(child: Text("Escribe para buscar..."));
+    }
+
+    final results = cursos.where((curso) {
+      final tituloLower = curso.titulo.toLowerCase();
+      final instructorLower = curso.nombreInstructor.toLowerCase();
+      final queryLower = query.toLowerCase();
+
+      return tituloLower.contains(queryLower) || instructorLower.contains(queryLower);
+    }).toList();
+
+    if (results.isEmpty) {
+      return const Center(child: Text("No se encontraron cursos."));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: _SafetyCourseCard(curso: results[index]),
+        );
+      },
     );
   }
 }

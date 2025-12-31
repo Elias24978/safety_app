@@ -1,173 +1,107 @@
 import 'package:flutter/material.dart';
-import 'package:confetti/confetti.dart'; // Paquete necesario
+import 'package:safety_app/models/curso_model.dart';
+import 'package:safety_app/screens/compras/marketplace_dc3_form_screen.dart';
 
 class ExamenCursoScreen extends StatefulWidget {
-  final String nombreCurso;
+  final Curso curso;
+  // Recibimos las preguntas directamente de la lección seleccionada
+  final List<Pregunta> preguntas;
 
-  const ExamenCursoScreen({super.key, required this.nombreCurso});
+  const ExamenCursoScreen({
+    super.key,
+    required this.curso,
+    required this.preguntas,
+  });
 
   @override
   State<ExamenCursoScreen> createState() => _ExamenCursoScreenState();
 }
 
 class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
-  // Controlador para la animación de celebración
-  late ConfettiController _confettiController;
+  // Mapa para guardar las respuestas seleccionadas: índicePregunta -> índiceOpción
+  final Map<int, int> _respuestasSeleccionadas = {};
+  bool _enviado = false;
+  double _calificacion = 0.0;
+  bool _aprobado = false;
 
-  // --- DATOS DEL EXAMEN (Simulados) ---
-  final List<Map<String, dynamic>> _preguntas = [
-    {
-      "pregunta": "¿Cuál es la altura mínima para considerar un trabajo como 'Trabajo en Alturas' según la NOM-009?",
-      "opciones": ["1.50 metros", "1.80 metros", "2.00 metros", "3.00 metros"],
-      "respuesta_correcta": 1
-    },
-    {
-      "pregunta": "¿Qué significa EPP?",
-      "opciones": ["Equipo Para Personas", "Elementos de Protección Personal", "Equipo de Protección Personal", "Escudo Para Peligros"],
-      "respuesta_correcta": 2
-    },
-    {
-      "pregunta": "¿Cuál es el documento que acredita las competencias laborales ante la STPS?",
-      "opciones": ["Formato DC-1", "Formato DC-3", "Formato DC-5", "Diploma escolar"],
-      "respuesta_correcta": 1
-    },
-    {
-      "pregunta": "En caso de incendio, ¿qué tipo de extintor se usa para fuego eléctrico (Clase C)?",
-      "opciones": ["Agua", "Polvo Químico Seco o CO2", "Espuma", "Arena"],
-      "respuesta_correcta": 1
-    },
-    {
-      "pregunta": "¿Quién es responsable de proporcionar el EPP a los trabajadores?",
-      "opciones": ["El trabajador", "El sindicato", "El patrón", "El gobierno"],
-      "respuesta_correcta": 2
-    },
-  ];
-
-  late List<int> _respuestasUsuario;
-  bool _examenFinalizado = false;
-  // Se eliminaron _calificacionFinal y _aprobado porque no se usaban y causaban warnings
-
-  @override
-  void initState() {
-    super.initState();
-    _respuestasUsuario = List.filled(_preguntas.length, -1);
-    // Inicializamos el controlador con una duración de 3 segundos
-    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
-  }
-
-  @override
-  void dispose() {
-    // Importante liberar el controlador para evitar fugas de memoria
-    _confettiController.dispose();
-    super.dispose();
-  }
-
-  void _calificarExamen() {
-    if (_respuestasUsuario.contains(-1)) {
+  void _calificar() {
+    if (_respuestasSeleccionadas.length < widget.preguntas.length) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Por favor responde todas las preguntas antes de finalizar."),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Por favor responde todas las preguntas antes de finalizar.')),
       );
       return;
     }
 
     int aciertos = 0;
-    for (int i = 0; i < _preguntas.length; i++) {
-      if (_respuestasUsuario[i] == _preguntas[i]['respuesta_correcta']) {
+    for (int i = 0; i < widget.preguntas.length; i++) {
+      // ✅ CORRECCIÓN: Usamos 'indiceRespuestaCorrecta' en lugar de 'indiceCorrecto'
+      if (_respuestasSeleccionadas[i] == widget.preguntas[i].indiceRespuestaCorrecta) {
         aciertos++;
       }
     }
 
-    double calificacion = (aciertos / _preguntas.length) * 10;
-    bool pasoElExamen = calificacion >= 8.0;
+    double promedio = (aciertos / widget.preguntas.length) * 10.0;
 
     setState(() {
-      _examenFinalizado = true;
+      _enviado = true;
+      _calificacion = promedio;
+      _aprobado = promedio >= 8.0; // Mínimo 8.0 para aprobar
     });
 
-    if (pasoElExamen) {
-      // ¡DISPARAR CONFETI! 🎉
-      _confettiController.play();
-      _mostrarDialogoResultado(true, calificacion);
+    if (_aprobado) {
+      _mostrarDialogoAprobado();
     } else {
-      _mostrarDialogoResultado(false, calificacion);
+      _mostrarDialogoReprobado();
     }
   }
 
-  void _mostrarDialogoResultado(bool aprobado, double calificacion) {
+  void _mostrarDialogoAprobado() {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Column(
-          children: [
-            Icon(
-              aprobado ? Icons.emoji_events : Icons.sentiment_dissatisfied,
-              size: 60,
-              color: aprobado ? Colors.amber : Colors.grey,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              aprobado ? "¡Felicidades!" : "Inténtalo de nuevo",
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Tu calificación final es:",
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              calificacion.toStringAsFixed(1),
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w900,
-                color: aprobado ? Colors.green : Colors.red,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              aprobado
-                  ? "Has aprobado el curso satisfactoriamente. Tu constancia DC3 está lista para generarse."
-                  : "Necesitas una calificación mínima de 8.0 para obtener tu constancia. Repasa los módulos y vuelve a intentarlo.",
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('¡Felicidades! 🎉'),
+        content: Text('Has aprobado con $_calificacion. Ya puedes generar tu constancia DC-3.'),
         actions: [
-          if (!aprobado)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  _respuestasUsuario = List.filled(_preguntas.length, -1);
-                  _examenFinalizado = false;
-                });
-              },
-              child: const Text("Reintentar"),
-            ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              if (aprobado) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Generando Constancia DC3... (Próximamente)"), backgroundColor: Colors.green),
-                );
-              }
+              Navigator.pop(ctx); // Cierra dialogo
+              // Navegar al formulario DC-3
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MarketplaceDC3FormScreen(curso: widget.curso),
+                ),
+              );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: aprobado ? const Color(0xFF2A2A2A) : Colors.grey,
-            ),
-            child: Text(aprobado ? "Obtener Certificado" : "Salir", style: const TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            child: const Text('GENERAR DC-3'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarDialogoReprobado() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Inténtalo de nuevo 😕'),
+        content: Text('Tu calificación fue $_calificacion. Necesitas 8.0 para aprobar.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _enviado = false;
+                _respuestasSeleccionadas.clear();
+              });
+            },
+            child: const Text('REINTENTAR'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context), // Salir del examen
+            child: const Text('SALIR'),
           ),
         ],
       ),
@@ -177,193 +111,73 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text("Evaluación Final"),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        titleTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+        title: const Text('Evaluación Final'),
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
       ),
-      body: Stack(
+      body: widget.preguntas.isEmpty
+          ? const Center(child: Text("No hay preguntas configuradas para este examen."))
+          : Column(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade100),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          "Responde correctamente para acreditar el curso: ${widget.nombreCurso}",
-                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: widget.preguntas.length,
+              itemBuilder: (context, index) {
+                final preguntaItem = widget.preguntas[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          // ✅ CORRECCIÓN: Usamos 'preguntaItem.pregunta' en lugar de 'enunciado'
+                          "${index + 1}. ${preguntaItem.pregunta}",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                ...List.generate(_preguntas.length, (index) {
-                  return _PreguntaCard(
-                    numero: index + 1,
-                    pregunta: _preguntas[index]['pregunta'],
-                    opciones: _preguntas[index]['opciones'],
-                    seleccionada: _respuestasUsuario[index],
-                    onRespuestaSeleccionada: (val) {
-                      if (!_examenFinalizado) {
-                        setState(() {
-                          _respuestasUsuario[index] = val;
-                        });
-                      }
-                    },
-                    esCorrecta: _examenFinalizado
-                        ? _respuestasUsuario[index] == _preguntas[index]['respuesta_correcta']
-                        : null,
-                  );
-                }),
-
-                const SizedBox(height: 20),
-
-                if (!_examenFinalizado)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _calificarExamen,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD143),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text(
-                        "Finalizar y Calificar",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
+                        const SizedBox(height: 8),
+                        ...List.generate(preguntaItem.opciones.length, (opIndex) {
+                          return RadioListTile<int>(
+                            title: Text(preguntaItem.opciones[opIndex]),
+                            value: opIndex,
+                            groupValue: _respuestasSeleccionadas[index],
+                            activeColor: const Color(0xFF0D47A1),
+                            onChanged: _enviado ? null : (val) {
+                              setState(() {
+                                _respuestasSeleccionadas[index] = val!;
+                              });
+                            },
+                          );
+                        }),
+                      ],
                     ),
                   ),
-
-                const SizedBox(height: 40),
-              ],
+                );
+              },
             ),
           ),
-
-          // --- WIDGET DE CONFETI (Ahora activo) ---
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive, // Explosión hacia todas direcciones
-              shouldLoop: false, // Solo una vez
-              colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple], // Colores festivos
-              numberOfParticles: 20, // Cantidad de papelitos
-              gravity: 0.1, // Velocidad de caída
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreguntaCard extends StatelessWidget {
-  final int numero;
-  final String pregunta;
-  final List<dynamic> opciones;
-  final int seleccionada;
-  final Function(int) onRespuestaSeleccionada;
-  final bool? esCorrecta;
-
-  const _PreguntaCard({
-    required this.numero,
-    required this.pregunta,
-    required this.opciones,
-    required this.seleccionada,
-    required this.onRespuestaSeleccionada,
-    this.esCorrecta,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Color bordeColor = Colors.transparent;
-    if (esCorrecta != null) {
-      bordeColor = esCorrecta! ? Colors.green : Colors.red;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: esCorrecta != null ? bordeColor : Colors.white,
-            width: 2
-        ),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.1), // Usamos withValues
-              blurRadius: 5,
-              offset: const Offset(0, 2)
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
+          Container(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: const Color(0xFF2A2A2A),
-                  child: Text(
-                    numero.toString(),
-                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0,-2))]
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _enviado ? null : _calificar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD143),
+                  foregroundColor: Colors.black,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    pregunta,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-                if (esCorrecta != null)
-                  Icon(
-                    esCorrecta! ? Icons.check_circle : Icons.cancel,
-                    color: esCorrecta! ? Colors.green : Colors.red,
-                  )
-              ],
+                child: const Text('FINALIZAR Y CALIFICAR', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
             ),
           ),
-          const Divider(height: 1),
-          ...List.generate(opciones.length, (index) {
-            return RadioListTile<int>(
-              title: Text(
-                opciones[index],
-                style: TextStyle(
-                  color: seleccionada == index ? Colors.black : Colors.grey[700],
-                  fontWeight: seleccionada == index ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              value: index,
-              groupValue: seleccionada,
-              activeColor: const Color(0xFFFFD143),
-              onChanged: esCorrecta != null ? null : (val) => onRespuestaSeleccionada(val!),
-            );
-          }),
         ],
       ),
     );

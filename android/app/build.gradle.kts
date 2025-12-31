@@ -1,7 +1,5 @@
-// ✅ INICIO: IMPORTACIONES AÑADIDAS PARA RESOLVER EL ERROR
 import java.util.Properties
 import java.io.FileInputStream
-// ✅ FIN: IMPORTACIONES AÑADIDAS
 
 plugins {
     id("com.android.application")
@@ -16,28 +14,23 @@ if (localPropertiesFile.isFile) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
 
-var flutterVersionCode = localProperties.getProperty("flutter.versionCode")
-if (flutterVersionCode == null) {
-    flutterVersionCode = "1"
-}
-
-var flutterVersionName = localProperties.getProperty("flutter.versionName")
-if (flutterVersionName == null) {
-    flutterVersionName = "1.0"
-}
+val flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "1"
+val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0"
 
 android {
     namespace = "com.safetyapp.mobile"
+    // ✅ CORRECCIÓN MAESTRA: Subimos a 35 (Android 15) para satisfacer a los plugins
+    // Si el error persiste pidiendo estrictamente 36, cambia este número a 36.
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
     }
 
     sourceSets {
@@ -46,10 +39,14 @@ android {
 
     defaultConfig {
         applicationId = "com.safetyapp.mobile"
-        minSdk = 24
-        targetSdk = 34
+        minSdk = flutter.minSdkVersion
+        // ✅ CORRECCIÓN: Target también a 35
+        targetSdk = 36
         versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
+
+        // Vital para evitar crashes de memoria con Firebase
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -64,8 +61,11 @@ flutter {
 }
 
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    // Soporte para más de 64k métodos (necesario por Firebase + Maps)
+    implementation("androidx.multidex:multidex:2.0.1")
 
+    // Firebase (Usando BOM para gestionar versiones automáticamente)
+    implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")

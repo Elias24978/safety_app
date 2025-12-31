@@ -1,24 +1,56 @@
-<manifest xmlns:tools="http://schemas.android.com/tools"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.safetyapp.mobile"
+    tools:ignore="MissingVersion"> <!-- Soluciona advertencia de versionCode -->
 
+    <!-- SOLUCIÓN AL ERROR DE API LEVEL 4 / MAXSDKVERSION -->
+    <!-- Declaramos explícitamente los SDKs para que el editor sepa que no estamos en API 1 -->
+    <!-- Gradle sobrescribirá esto al compilar, pero esto arregla los errores del editor -->
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="36"
+        tools:ignore="GradleOverrides" />
+
+    <!-- ================================================= -->
+    <!-- 1. PERMISOS DEL SISTEMA Y RED                     -->
+    <!-- ================================================= -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- ================================================= -->
+    <!-- 2. PERMISOS DE UBICACIÓN                          -->
+    <!-- ================================================= -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"
-        tools:ignore="PhotoAndVideoPolicy" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"
-        tools:ignore="PhotoAndVideoPolicy" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID"
-        tools:ignore="AdvertisingIdPolicy" />
+
+    <!-- ================================================= -->
+    <!-- 3. PERMISOS BLUETOOTH (CRÍTICO)                   -->
+    <!-- ================================================= -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- ================================================= -->
+    <!-- 4. PERMISOS MULTIMEDIA                            -->
+    <!-- ================================================= -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:ignore="PhotoAndVideoPolicy" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:ignore="PhotoAndVideoPolicy" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- El error de API level 4 desaparece gracias al tag <uses-sdk> de arriba -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!-- ================================================= -->
+    <!-- 5. PERMISOS DE PUBLICIDAD                         -->
+    <!-- ================================================= -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:ignore="AdvertisingIdPolicy" />
 
     <application
         android:label="safety_app"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="33">
+        <!-- NOTA: Cambié "${applicationName}" por ".MainApplication" para solucionar el error "Unresolved class" -->
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -27,6 +59,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme"
@@ -38,6 +71,10 @@
         </activity>
 
         <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+
+        <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
@@ -47,6 +84,16 @@
     </application>
 
     <queries>
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.android.vending" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

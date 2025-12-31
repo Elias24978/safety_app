@@ -3,11 +3,12 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:safety_app/screens/notificaciones_list_screen.dart';
 import 'package:safety_app/screens/placeholder_screen.dart';
 import 'package:safety_app/services/database_service.dart';
-import 'dart:developer'; // Importa el logger para reemplazar 'print'
+import 'dart:developer';
 
-// NUEVAS IMPORTACIONES NECESARIAS
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safety_app/screens/welcome_screen.dart';
+// Importamos la pantalla de carga (asegúrate de que el archivo exista en esta ruta)
+import 'package:safety_app/screens/admin/admin_upload_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,27 +18,38 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Simula el estado de la suscripción del usuario.
   bool isUserPremium = false;
-
-  // Estado para el switch del tema
   bool _isDarkTheme = false;
-
-  // Índice para la barra de navegación. 'Tu Cuenta' es el índice 3.
   final int _bottomNavIndex = 3;
 
-  // Función para manejar la navegación desde la barra inferior
+  // 🔒 SEGURIDAD: Definimos el correo del administrador
+  final String _adminEmail = "eliasrmz24@gmail.com";
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+  }
+
+  // Verificamos si el usuario actual es el admin
+  void _checkAdminStatus() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email == _adminEmail) {
+      setState(() {
+        _isAdmin = true;
+      });
+    }
+  }
+
   void _onBottomNavItemTapped(int index) {
-    // Si ya estamos en la pantalla, no hacemos nada
     if (index == _bottomNavIndex) return;
 
     switch (index) {
       case 0:
-      // Regresa a la pantalla anterior (MenuScreen)
         Navigator.pop(context);
         break;
       case 1:
-      // Reemplaza la pantalla actual por la de 'Escritorio'
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -45,7 +57,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
         break;
       case 2:
-      // Reemplaza la pantalla actual por la de 'Notificaciones'
         Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -54,37 +65,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  /// Inicia el proceso de compra de la suscripción premium usando RevenueCat.
-  /// SE MANTIENE TAL CUAL ME LA COMPARTISTE
   Future<void> _purchasePremium() async {
     final databaseService = DatabaseService();
     try {
-      // 1. Obtener los "Offerings" (ofertas) que configuraste en RevenueCat.
       final Offerings offerings = await Purchases.getOfferings();
 
       if (!mounted) return;
 
       if (offerings.current != null &&
           offerings.current!.availablePackages.isNotEmpty) {
-        // 2. Presentar la pantalla de pago al usuario.
         final Package packageToPurchase =
             offerings.current!.availablePackages.first;
 
-        // --- CÓDIGO ORIGINAL QUE COMPARTISTE ---
-        // La versión 9.x del paquete devuelve un `PurchaseResult`.
         final PurchaseResult purchaseResult =
         await Purchases.purchasePackage(packageToPurchase);
 
-        // 3. Verificar si el "entitlement" premium está activo.
-        // Se accede a `customerInfo` a través de `purchaseResult`.
         if (purchaseResult.customerInfo.entitlements.all['premium'] != null &&
             purchaseResult.customerInfo.entitlements.all['premium']!.isActive) {
-          // --- FIN DEL CÓDIGO ORIGINAL ---
 
-          // ¡ÉXITO! El usuario es premium. Actualiza Firestore.
           await databaseService.updateUserPremiumStatus(true);
 
-          // Actualiza el estado local para reflejar el cambio en la UI.
           setState(() {
             isUserPremium = true;
           });
@@ -96,9 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      // Manejar errores (ej. el usuario canceló la compra).
-      log("Error en la compra: $e"); // Usar log en vez de print
-
+      log("Error en la compra: $e");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('La compra fue cancelada o falló.')),
@@ -113,14 +111,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Tú'),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 1,
-        // Con esta línea se quita la flecha de retroceso.
         automaticallyImplyLeading: false,
       ),
       body: ListView(
         children: [
-          // El banner se oculta si el usuario ya es premium.
           if (!isUserPremium) _buildPremiumBanner(),
           const SizedBox(height: 10),
+
+          // --- SECCIÓN ADMIN (SOLO VISIBLE PARA TI) ---
+          if (_isAdmin) ...[
+            _buildSectionTitle('Administración'),
+            ListTile(
+              leading: const Icon(Icons.cloud_upload, color: Colors.orange),
+              title: const Text('Subir/Actualizar Cursos'),
+              subtitle: const Text('Panel de control de contenido'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminUploadScreen()),
+                );
+              },
+            ),
+            const Divider(height: 20),
+          ],
+          // ---------------------------------------------
+
           _buildSectionTitle('Información de la Cuenta'),
           ListTile(
             leading: const Icon(Icons.person_outline),
@@ -186,29 +202,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(height: 20),
           _buildSectionTitle('Acciones de la Cuenta'),
-
-          // --- AQUÍ ESTÁ EL CAMBIO PARA LA NAVEGACIÓN ---
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
             onTap: () async {
-              // 1. Cerrar sesión en Firebase
               await FirebaseAuth.instance.signOut();
-
-              // 2. Navegación Manual Forzada:
-              // Esto elimina todas las pantallas anteriores y pone la WelcomeScreen
               if (mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-                      (Route<dynamic> route) => false, // false elimina todo el historial
+                      (Route<dynamic> route) => false,
                 );
               }
             },
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title:
-            const Text('Eliminar Cuenta', style: TextStyle(color: Colors.red)),
+            title: const Text('Eliminar Cuenta', style: TextStyle(color: Colors.red)),
             onTap: () {},
           ),
         ],
@@ -216,10 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard), label: 'Escritorio'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications), label: 'Notificaciones'),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Escritorio'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notificaciones'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tu Cuenta'),
         ],
         currentIndex: _bottomNavIndex,
@@ -245,9 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(15),
         ),
         child: ListTile(
-          contentPadding:
-          // Corrección del error de sintaxis de EdgeInsets
-          const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
           leading: const Icon(Icons.shield, color: Colors.white, size: 40),
           title: const Text('Obtener Premium',
               style: TextStyle(

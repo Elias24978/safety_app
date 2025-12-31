@@ -1,5 +1,3 @@
-// lib/services/pdf_service.dart
-
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +8,8 @@ import 'package:safety_app/utils/dc3_catalogs.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class PdfService {
-  Future<void> generateAndSaveDC3(DC3Data data) async {
+  // Retornamos Future<File> para que la UI pueda usar el archivo (ej. enviarlo por correo)
+  Future<File> generateAndSaveDC3(DC3Data data) async {
     try {
       final byteData = await rootBundle.load('assets/dc3_template.pdf');
       final bytes = byteData.buffer.asUint8List();
@@ -23,6 +22,12 @@ class PdfService {
       final String areaDesc = catalogoAreasTematicas[data.areaTematicaKey] ?? '';
       final String areaText = '${data.areaTematicaKey} $areaDesc'.toUpperCase();
 
+      // Combinar Nombre Agente + Registro STPS
+      String agenteCompleto = data.nombreAgenteCapacitador;
+      if (data.registroAgente != null && data.registroAgente!.isNotEmpty) {
+        agenteCompleto += " (REG. STPS: ${data.registroAgente})";
+      }
+
       _fillTextField(form, 'nombre_trabajador', data.nombreTrabajador);
       _fillTextField(form, 'ocupacion', ocupacionText);
       _fillTextField(form, 'puesto', data.puesto);
@@ -30,7 +35,10 @@ class PdfService {
       _fillTextField(form, 'nombre_curso', data.nombreCurso);
       _fillTextField(form, 'duracion', data.duracionHoras.toString());
       _fillTextField(form, 'area_tematica', areaText);
-      _fillTextField(form, 'agente_capacitador', data.nombreAgenteCapacitador);
+
+      // Usamos la cadena combinada aquí
+      _fillTextField(form, 'agente_capacitador', agenteCompleto);
+
       _fillTextField(form, 'firma_instructor', data.nombreInstructor);
 
       final patronText = data.nombrePatron.trim().isEmpty ? '' : 'C. ${data.nombrePatron}';
@@ -48,15 +56,27 @@ class PdfService {
       final formattedFin = DateFormat('ddMMyyyy').format(data.fechaFin);
       _fillSplitText(form, ['d2','d3','m2','m3','ao4','ao5','ao6','ao7'], formattedFin);
 
+      // 🔒 SEGURIDAD: APLANAR EL FORMULARIO
+      // Esto elimina la interactividad de los campos (cajas azules) y convierte
+      // el contenido en parte estática del documento.
+      form.flattenAllFields();
+
       final List<int> newBytes = await document.save();
       document.dispose();
 
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'DC3_${data.nombreTrabajador.replaceAll(' ', '_')}.pdf';
+      // Limpiamos el nombre de caracteres especiales para evitar errores en Android
+      final cleanName = data.nombreTrabajador.replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
+      final fileName = 'DC3_$cleanName.pdf';
+
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(newBytes, flush: true);
 
+      // Visualización automática
       await OpenFilex.open(file.path);
+
+      // Retorno del archivo para envío por correo
+      return file;
 
     } catch (e) {
       print('Ocurrió un error al generar el PDF: $e');
@@ -77,8 +97,8 @@ class PdfService {
     final dynamic field = _findField(form, name);
     if (field is PdfTextBoxField) {
       field.text = value;
-    } else {
-      print('Advertencia: Campo de texto "$name" no encontrado en el PDF.');
+      // Opcional: Aseguramos que sea de solo lectura antes de aplanar por doble seguridad
+      field.readOnly = true;
     }
   }
 
