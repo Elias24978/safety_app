@@ -10,6 +10,11 @@
         tools:ignore="GradleOverrides" />
 
     <!-- ================================================= -->
+    <!-- 0. PERMISO OBLIGATORIO REVENUECAT (AGREGADO)      -->
+    <!-- ================================================= -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+
+    <!-- ================================================= -->
     <!-- 1. PERMISOS DEL SISTEMA Y RED                     -->
     <!-- ================================================= -->
     <uses-permission android:name="android.permission.INTERNET"/>

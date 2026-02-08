@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:safety_app/models/curso_model.dart';
+// Asegúrate de que este archivo exista y la clase se llame exactamente así
 import 'package:safety_app/screens/compras/marketplace_dc3_form_screen.dart';
 
 class ExamenCursoScreen extends StatefulWidget {
@@ -40,12 +41,16 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
       }
     }
 
-    double promedio = (aciertos / widget.preguntas.length) * 10.0;
+    // Cálculo de calificación en escala de 0 a 10
+    double promedio = 0.0;
+    if (widget.preguntas.isNotEmpty) {
+      promedio = (aciertos / widget.preguntas.length) * 10.0;
+    }
 
     setState(() {
       _enviado = true;
       _calificacion = promedio;
-      _aprobado = promedio >= 8.0; // Mínimo 8.0 para aprobar
+      _aprobado = promedio >= 8.0; // Mínimo 8.0 para aprobar (estándar STPS/DC-3)
     });
 
     if (_aprobado) {
@@ -61,12 +66,12 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text('¡Felicidades! 🎉'),
-        content: Text('Has aprobado con $_calificacion. Ya puedes generar tu constancia DC-3.'),
+        content: Text('Has aprobado con ${_calificacion.toStringAsFixed(1)}. Ya puedes generar tu constancia DC-3.'),
         actions: [
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx); // Cierra dialogo
-              // Navegar al formulario DC-3
+              // Navegar al formulario DC-3 reemplazando la pantalla actual
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -74,7 +79,10 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white
+            ),
             child: const Text('GENERAR DC-3'),
           ),
         ],
@@ -87,14 +95,14 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Inténtalo de nuevo 😕'),
-        content: Text('Tu calificación fue $_calificacion. Necesitas 8.0 para aprobar.'),
+        content: Text('Tu calificación fue ${_calificacion.toStringAsFixed(1)}. Necesitas 8.0 para aprobar y obtener la constancia.'),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               setState(() {
                 _enviado = false;
-                _respuestasSeleccionadas.clear();
+                _respuestasSeleccionadas.clear(); // Limpia selección para reintentar
               });
             },
             child: const Text('REINTENTAR'),
@@ -134,7 +142,7 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          // ✅ CORRECCIÓN: Usamos 'preguntaItem.pregunta' en lugar de 'enunciado'
+                          // ✅ CORRECCIÓN: Usamos 'preguntaItem.pregunta'
                           "${index + 1}. ${preguntaItem.pregunta}",
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),

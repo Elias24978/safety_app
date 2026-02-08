@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:safety_app/models/curso_model.dart';
+import 'package:safety_app/services/purchase_service.dart';
 
 class MarketplaceService {
   // --- CREDENCIALES ---
@@ -32,83 +33,137 @@ class MarketplaceService {
         final Map<String, dynamic> data = json.decode(response.body);
         final List<dynamic> records = data['records'];
         return records.map((json) => Curso.fromAirtable(json)).toList();
-      } else {
-        print("❌ Error Airtable (${response.statusCode}): ${response.body}");
-        return [];
       }
+      return [];
     } catch (e) {
-      print('❌ Excepción en fetchCursosPublicos: $e');
+      print('❌ Excepción fetchCursos: $e');
       return [];
     }
   }
 
-  // 2. VERIFICAR COMPRA Y CARGAR ESTRUCTURA REAL
+  // 2. VERIFICAR COMPRA Y ESTADO (Lectura)
   Future<Curso> enriquecerCursoConEstado(Curso cursoPublico) async {
     User? user = _auth.currentUser;
-    // Descargamos la estructura REAL de Firestore (para mostrar el temario correcto)
+
     List<Modulo>? temarioReal = await _obtenerTemarioFirestore(cursoPublico.id);
+    List<Modulo> temarioBase = temarioReal ?? cursoPublico.temario ?? _getTemarioDemo();
 
     if (user == null) {
-      // Si no hay usuario, devolvemos el temario real pero bloqueado (sin URLs)
       return cursoPublico.copyWithPrivateData(
-          temario: _limpiarUrlsParaPreview(temarioReal),
+          temario: _limpiarUrlsParaPreview(temarioBase),
           comprado: false,
           completado: false
       );
     }
 
     try {
-      // PASO 1: Buscar compra ACTIVA ('pagado')
-      final activeQuery = await _firestore
-          .collection('compras')
+      // A. Buscamos compra ACTIVA en Firestore
+      // Requiere índice compuesto en Firestore: usuario_uid ASC, curso_id ASC, status ASC, fecha_compra DESC
+      final activeQuery = await _firestore.collection('compras')
           .where('usuario_uid', isEqualTo: user.uid)
           .where('curso_id', isEqualTo: cursoPublico.id)
           .where('status', isEqualTo: 'pagado')
+          .orderBy('fecha_compra', descending: true)
           .limit(1)
           .get();
 
       if (activeQuery.docs.isNotEmpty) {
-        // ✅ TIENE SALDO: Devolvemos el temario COMPLETO (con URLs)
+        // ✅ TIENE EL CURSO ABIERTO
         return cursoPublico.copyWithPrivateData(
-            temario: temarioReal ?? _getTemarioDemo(), // Si falló Firestore, usa demo
+            temario: temarioReal, // Acceso total
             comprado: true,
             completado: false
         );
       }
 
-      // PASO 2: Buscar si ya lo completó antes ('certificado_emitido')
-      final completedQuery = await _firestore
-          .collection('compras')
+      // B. Buscamos compra FINALIZADA en Firestore
+      final completedQuery = await _firestore.collection('compras')
           .where('usuario_uid', isEqualTo: user.uid)
           .where('curso_id', isEqualTo: cursoPublico.id)
           .where('status', isEqualTo: 'certificado_emitido')
+          .orderBy('fecha_compra', descending: true)
           .limit(1)
           .get();
 
       if (completedQuery.docs.isNotEmpty) {
-        // 🔒 YA SE CERTIFICÓ: Mostramos temario pero bloqueamos acceso (sin URLs)
-        // Esto obliga a recomprar para volver a certificar.
+        // 🎓 CURSO TERMINADO -> SE MUESTRA COMO NO COMPRADO PARA RE-CERTIFICAR
         return cursoPublico.copyWithPrivateData(
-            temario: _limpiarUrlsParaPreview(temarioReal),
-            comprado: false,
-            completado: true
+            temario: _limpiarUrlsParaPreview(temarioBase), // Bloqueado
+            comprado: false, // Botón de comprar activo
+            completado: true // Badge de completado
         );
       }
 
-      // NO COMPRADO: Mostramos temario real (para antojar) pero sin URLs
+      // C. Verificación de Entitlement (Respaldo para Suscripciones/Lifetime)
+      // Solo si es un entitlement REAL activo en RevenueCat.
+      // Para consumibles simples, esto suele ser false.
+      bool tieneEntitlement = await PurchaseService().checkCourseAccess(cursoPublico.id);
+      if (tieneEntitlement) {
+        // Si tiene entitlement pero no documento local, intentamos registrarlo
+        // (Esto es raro en consumibles, pero útil para suscripciones)
+        await _registrarCompraNuevaInterna(user.uid, cursoPublico.id);
+        return cursoPublico.copyWithPrivateData(
+            temario: temarioReal,
+            comprado: true,
+            completado: false
+        );
+      }
+
+      // D. Sin acceso
       return cursoPublico.copyWithPrivateData(
-          temario: _limpiarUrlsParaPreview(temarioReal),
+          temario: _limpiarUrlsParaPreview(temarioBase),
           comprado: false,
           completado: false
       );
 
     } catch (e) {
-      print('⚠️ Error verificando compra: $e.');
-      return cursoPublico;
+      print('⚠️ [Marketplace] Error verificando: $e');
+      return cursoPublico.copyWithPrivateData(
+          temario: _limpiarUrlsParaPreview(temarioBase),
+          comprado: false,
+          completado: false
+      );
     }
   }
 
-  // Helper para obtener datos de Firestore
+  // ✅ MÉTODO FALTANTE: Registro explícito de compra nueva
+  // Se llama desde la UI (DetalleCursoScreen) al completar el pago exitosamente.
+  Future<void> registrarCompraNueva(String cursoId) async {
+    User? user = _auth.currentUser;
+    if (user == null) return;
+    await _registrarCompraNuevaInterna(user.uid, cursoId);
+  }
+
+  Future<void> _registrarCompraNuevaInterna(String uid, String cursoId) async {
+    try {
+      // Verificamos si YA hay uno activo para no duplicar por error
+      final activeQuery = await _firestore.collection('compras')
+          .where('usuario_uid', isEqualTo: uid)
+          .where('curso_id', isEqualTo: cursoId)
+          .where('status', isEqualTo: 'pagado')
+          .limit(1)
+          .get();
+
+      if (activeQuery.docs.isEmpty) {
+        print("✨ [Marketplace] Creando nuevo registro de acceso para $cursoId");
+        await _firestore.collection('compras').add({
+          'usuario_uid': uid,
+          'curso_id': cursoId,
+          'fecha_compra': FieldValue.serverTimestamp(),
+          'status': 'pagado',
+          'metodo': 'store_purchase',
+          'progreso_lecciones': []
+        });
+      } else {
+        print("ℹ️ [Marketplace] Ya existe un registro activo para $cursoId, omitiendo creación.");
+      }
+    } catch (e) {
+      print("❌ Error registrando compra en Firestore: $e");
+    }
+  }
+
+  // --- Helpers y métodos legacy ---
+
   Future<List<Modulo>?> _obtenerTemarioFirestore(String cursoId) async {
     try {
       final doc = await _firestore.collection('cursos').doc(cursoId).get();
@@ -116,107 +171,81 @@ class MarketplaceService {
         List<dynamic> jsonList = doc.data()!['temario'];
         return jsonList.map((m) => Modulo.fromJson(m)).toList();
       }
-    } catch (e) {
-      print("Error leyendo Firestore: $e");
-    }
+    } catch (_) {}
     return null;
   }
 
-  // Helper de Seguridad: Borra los URLs de video para la vista previa
-  List<Modulo>? _limpiarUrlsParaPreview(List<Modulo>? original) {
-    if (original == null) return null;
+  List<Modulo> _limpiarUrlsParaPreview(List<Modulo> original) {
     return original.map((m) {
       return Modulo(
           titulo: m.titulo,
           lecciones: m.lecciones.map((l) => Leccion(
               titulo: l.titulo,
               tipo: l.tipo,
-              url: "", // 🔒 URL BORRADA: Seguridad para no robar contenido
+              url: "", // URL BORRADA
               duracionMinutos: l.duracionMinutos,
-              preguntas: null // 🔒 PREGUNTAS BORRADAS
+              preguntas: null
           )).toList()
       );
     }).toList();
   }
 
-  // 4. REGISTRAR COMPRA
   Future<bool> simularCompra(String cursoId) async {
     User? user = _auth.currentUser;
     if (user == null) return false;
-
-    try {
-      await _firestore.collection('compras').add({
-        'usuario_uid': user.uid,
-        'curso_id': cursoId,
-        'fecha_compra': FieldValue.serverTimestamp(),
-        'status': 'pagado',
-        'metodo': 'simulacion_dev',
-        'progreso_lecciones': []
-      });
-      return true;
-    } catch (e) {
-      print("❌ Error al registrar compra: $e");
-      return false;
-    }
+    // Redirige al nuevo método unificado
+    await _registrarCompraNuevaInterna(user.uid, cursoId);
+    return true;
   }
 
-  // 5. GUARDAR PROGRESO
   Future<void> guardarProgresoLeccion(String cursoId, String leccionId) async {
     User? user = _auth.currentUser;
     if (user == null) return;
     try {
-      final querySnapshot = await _firestore
-          .collection('compras')
+      final query = await _firestore.collection('compras')
           .where('usuario_uid', isEqualTo: user.uid)
           .where('curso_id', isEqualTo: cursoId)
           .where('status', isEqualTo: 'pagado')
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        final docRef = querySnapshot.docs.first.reference;
-        await docRef.update({
+      if (query.docs.isNotEmpty) {
+        await query.docs.first.reference.update({
           'progreso_lecciones': FieldValue.arrayUnion([leccionId])
         });
       }
-    } catch (e) {
-      print("Error guardando progreso: $e");
-    }
+    } catch (_) {}
   }
 
-  // 6. OBTENER PROGRESO
   Future<List<String>> obtenerProgreso(String cursoId) async {
     User? user = _auth.currentUser;
     if (user == null) return [];
     try {
-      final querySnapshot = await _firestore
-          .collection('compras')
+      final query = await _firestore.collection('compras')
           .where('usuario_uid', isEqualTo: user.uid)
           .where('curso_id', isEqualTo: cursoId)
           .where('status', isEqualTo: 'pagado')
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        final data = querySnapshot.docs.first.data();
-        return List<String>.from(data['progreso_lecciones'] ?? []);
+      if (query.docs.isNotEmpty) {
+        return List<String>.from(query.docs.first.data()['progreso_lecciones'] ?? []);
       }
-    } catch (e) { print(e); }
+    } catch (_) {}
     return [];
   }
 
-  // 7. FINALIZAR CURSO (QUEMAR CARTUCHO)
   Future<bool> marcarCursoComoCompletado(String cursoId) async {
     User? user = _auth.currentUser;
     if (user == null) return false;
-
     try {
-      // Seguridad: Solo permite finalizar si hay una compra ACTIVA ('pagado')
+      // Buscamos el documento ACTIVO para cerrarlo
       final querySnapshot = await _firestore
           .collection('compras')
           .where('usuario_uid', isEqualTo: user.uid)
           .where('curso_id', isEqualTo: cursoId)
           .where('status', isEqualTo: 'pagado')
+          .orderBy('fecha_compra', descending: true)
           .limit(1)
           .get();
 
@@ -226,9 +255,10 @@ class MarketplaceService {
           'status': 'certificado_emitido', // 🔒 Cierra el ciclo
           'fecha_certificacion': FieldValue.serverTimestamp(),
         });
+        print("🎉 Curso $cursoId finalizado y cerrado correctamente.");
         return true;
       }
-      return false; // Ya fue usado o no existe
+      return false;
     } catch (e) {
       print("⚠️ Error al finalizar curso: $e");
       return false;
@@ -236,6 +266,6 @@ class MarketplaceService {
   }
 
   List<Modulo> _getTemarioDemo() {
-    return [Modulo(titulo: "Cargando temario...", lecciones: [])];
+    return [Modulo(titulo: "Contenido no disponible temporalmente", lecciones: [])];
   }
 }

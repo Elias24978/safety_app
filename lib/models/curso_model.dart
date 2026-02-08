@@ -12,6 +12,9 @@ class Curso {
   final double rating;
   final String estado;
 
+  // --- DATOS STORE (Dinámico) ---
+  final String? storeId; // Mapeado de "ID Producto Store" en Airtable
+
   // --- DATOS DC-3 (Airtable) ---
   final int duracionHoras;
   final String areaTematicaClave;
@@ -35,6 +38,7 @@ class Curso {
     required this.categoria,
     required this.rating,
     required this.estado,
+    this.storeId,
     this.duracionHoras = 4,
     this.areaTematicaClave = "6000",
     this.nombreAgenteCapacitador = "Safety App Capacitación",
@@ -54,7 +58,6 @@ class Curso {
     }
 
     // --- LÓGICA DE CÓDIGO INSTRUCTOR (Antes Instructor) ---
-    // Cambio: Ahora buscamos la columna "Codigo_Instructor" en la tabla "Cursos_Publicado"
     var rawCodigo = fields['Codigo_Instructor'];
     String codigoFinal = 'SAF-GEN'; // Valor por defecto si está vacío
 
@@ -85,12 +88,15 @@ class Curso {
       imagenPortadaUrl: portadaUrl,
       videoTrailerUrl: fields['Video_Trailer'] ?? '',
 
-      // Asignamos el CÓDIGO al campo nombreInstructor
       nombreInstructor: codigoFinal,
 
       categoria: fields['Categoria'] ?? 'General',
       rating: (fields['Rating'] as num?)?.toDouble() ?? 5.0,
       estado: fields['Estado'] ?? 'Borrador',
+
+      // ✅ MAPEO DINÁMICO DESDE AIRTABLE (Opción B)
+      storeId: fields['ID Producto Store'] as String?,
+
       duracionHoras: (fields['Duracion_Horas'] as num?)?.toInt() ?? 4,
       areaTematicaClave: fields['Area_Tematica_Clave'] ?? '6000',
 
@@ -109,21 +115,23 @@ class Curso {
     bool? completado,
   }) {
     return Curso(
-      id: this.id,
-      titulo: this.titulo,
-      descripcionCorta: this.descripcionCorta,
-      descripcionLarga: this.descripcionLarga,
-      precioMXN: this.precioMXN,
-      imagenPortadaUrl: this.imagenPortadaUrl,
-      videoTrailerUrl: this.videoTrailerUrl,
-      nombreInstructor: this.nombreInstructor,
-      categoria: this.categoria,
-      rating: this.rating,
-      estado: this.estado,
-      duracionHoras: this.duracionHoras,
-      areaTematicaClave: this.areaTematicaClave,
-      nombreAgenteCapacitador: this.nombreAgenteCapacitador,
-      registroAgenteSTPS: this.registroAgenteSTPS,
+      id: id,
+      titulo: titulo,
+      descripcionCorta: descripcionCorta,
+      descripcionLarga: descripcionLarga,
+      precioMXN: precioMXN,
+      imagenPortadaUrl: imagenPortadaUrl,
+      videoTrailerUrl: videoTrailerUrl,
+      nombreInstructor: nombreInstructor,
+      categoria: categoria,
+      rating: rating,
+      estado: estado,
+      // Mantenemos el storeId original
+      storeId: storeId,
+      duracionHoras: duracionHoras,
+      areaTematicaClave: areaTematicaClave,
+      nombreAgenteCapacitador: nombreAgenteCapacitador,
+      registroAgenteSTPS: registroAgenteSTPS,
       temario: temario ?? this.temario,
       comprado: comprado ?? this.comprado,
       completado: completado ?? this.completado,
