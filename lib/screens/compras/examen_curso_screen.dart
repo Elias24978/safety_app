@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:math'; // ✅ Importado para Random.secure()
 import 'package:safety_app/models/curso_model.dart';
-// Asegúrate de que este archivo exista y la clase se llame exactamente así
 import 'package:safety_app/screens/compras/marketplace_dc3_form_screen.dart';
 
 class ExamenCursoScreen extends StatefulWidget {
   final Curso curso;
-  // Recibimos las preguntas directamente de la lección seleccionada
   final List<Pregunta> preguntas;
 
   const ExamenCursoScreen({
@@ -19,7 +18,6 @@ class ExamenCursoScreen extends StatefulWidget {
 }
 
 class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
-  // Mapa para guardar las respuestas seleccionadas: índicePregunta -> índiceOpción
   final Map<int, int> _respuestasSeleccionadas = {};
   bool _enviado = false;
   double _calificacion = 0.0;
@@ -28,20 +26,21 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
   void _calificar() {
     if (_respuestasSeleccionadas.length < widget.preguntas.length) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor responde todas las preguntas antes de finalizar.')),
+        const SnackBar(
+          content: Text('Por favor responde todas las preguntas.'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     int aciertos = 0;
     for (int i = 0; i < widget.preguntas.length; i++) {
-      // ✅ CORRECCIÓN: Usamos 'indiceRespuestaCorrecta' en lugar de 'indiceCorrecto'
       if (_respuestasSeleccionadas[i] == widget.preguntas[i].indiceRespuestaCorrecta) {
         aciertos++;
       }
     }
 
-    // Cálculo de calificación en escala de 0 a 10
     double promedio = 0.0;
     if (widget.preguntas.isNotEmpty) {
       promedio = (aciertos / widget.preguntas.length) * 10.0;
@@ -50,7 +49,7 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
     setState(() {
       _enviado = true;
       _calificacion = promedio;
-      _aprobado = promedio >= 8.0; // Mínimo 8.0 para aprobar (estándar STPS/DC-3)
+      _aprobado = promedio >= 8.0;
     });
 
     if (_aprobado) {
@@ -60,30 +59,72 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
     }
   }
 
+  // 🚨 PARCHE DE SEGURIDAD: Generación de Folio Criptográficamente Segura
+  // Evita ataques de predicción e IDOR en la generación de folios
+  String _generarFolioSeguro() {
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    final secureRandom = Random.secure(); // ✅ Entropía real del sistema operativo
+
+    String part1 = List.generate(3, (index) => letters[secureRandom.nextInt(letters.length)]).join();
+    String part2 = secureRandom.nextInt(10000).toString().padLeft(4, '0');
+
+    return "$part1-$part2";
+  }
+
   void _mostrarDialogoAprobado() {
+    final String folioUnico = _generarFolioSeguro();
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('¡Felicidades! 🎉'),
-        content: Text('Has aprobado con ${_calificacion.toStringAsFixed(1)}. Ya puedes generar tu constancia DC-3.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('¡Felicidades! 🎉'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Has aprobado con ${_calificacion.toStringAsFixed(1)}.'),
+            const SizedBox(height: 10),
+            const Text(
+              'Estás a un paso de obtener tu constancia DC-3. '
+                  'Toca "Tramitar DC-3" para confirmar tus datos oficiales.',
+              style: TextStyle(fontSize: 14, color: Colors.black54),
+            ),
+          ],
+        ),
         actions: [
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(ctx); // Cierra dialogo
-              // Navegar al formulario DC-3 reemplazando la pantalla actual
+              Navigator.pop(ctx);
+
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => MarketplaceDC3FormScreen(curso: widget.curso),
+                  builder: (context) => MarketplaceDC3FormScreen(
+                    cursoId: widget.curso.id, // ✅ ID requerido para evitar Bypass y Race Conditions
+                    cursoNombre: widget.curso.titulo,
+                    cursoDuracion: "${widget.curso.duracionHoras} horas",
+                    instructorNombre: widget.curso.nombreAgenteCapacitador,
+                    instructorEmail: widget.curso.emailInstructor,
+                    instructorStps: widget.curso.registroAgenteSTPS,
+                    folio: folioUnico, // ✅ Folio seguro inyectado
+                    notaFinal: _calificacion,
+                  ),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white
+              backgroundColor: const Color(0xFF0D47A1),
+              foregroundColor: Colors.white,
             ),
-            child: const Text('GENERAR DC-3'),
+            child: const Text('TRAMITAR DC-3'),
           ),
         ],
       ),
@@ -93,8 +134,9 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
   void _mostrarDialogoReprobado() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Inténtalo de nuevo 😕'),
+        title: const Text('No aprobado 😕'),
         content: Text('Tu calificación fue ${_calificacion.toStringAsFixed(1)}. Necesitas 8.0 para aprobar y obtener la constancia.'),
         actions: [
           TextButton(
@@ -102,13 +144,13 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
               Navigator.pop(ctx);
               setState(() {
                 _enviado = false;
-                _respuestasSeleccionadas.clear(); // Limpia selección para reintentar
+                _respuestasSeleccionadas.clear();
               });
             },
             child: const Text('REINTENTAR'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context), // Salir del examen
+            onPressed: () => Navigator.pop(context),
             child: const Text('SALIR'),
           ),
         ],
@@ -133,33 +175,55 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
               padding: const EdgeInsets.all(16),
               itemCount: widget.preguntas.length,
               itemBuilder: (context, index) {
-                final preguntaItem = widget.preguntas[index];
+                final p = widget.preguntas[index];
                 return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          // ✅ CORRECCIÓN: Usamos 'preguntaItem.pregunta'
-                          "${index + 1}. ${preguntaItem.pregunta}",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          "Pregunta ${index + 1}",
+                          style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        ...List.generate(preguntaItem.opciones.length, (opIndex) {
-                          return RadioListTile<int>(
-                            title: Text(preguntaItem.opciones[opIndex]),
-                            value: opIndex,
-                            groupValue: _respuestasSeleccionadas[index],
-                            activeColor: const Color(0xFF0D47A1),
-                            onChanged: _enviado ? null : (val) {
+                        const SizedBox(height: 4),
+                        Text(
+                          p.pregunta,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ✅ SOLUCIÓN AL ERROR DE COMPILACIÓN
+                        RadioGroup<int>(
+                          groupValue: _respuestasSeleccionadas[index], // Usa groupValue en vez de value
+                          onChanged: (int? val) {
+                            // Se valida internamente en lugar de pasar 'null' para respetar el tipado estricto
+                            if (!_enviado && val != null) {
                               setState(() {
-                                _respuestasSeleccionadas[index] = val!;
+                                _respuestasSeleccionadas[index] = val;
                               });
-                            },
-                          );
-                        }),
+                            }
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: List.generate(p.opciones.length, (opIndex) {
+                              return RadioListTile<int>(
+                                title: Text(p.opciones[opIndex]),
+                                value: opIndex,
+                                activeColor: const Color(0xFF0D47A1),
+                                contentPadding: EdgeInsets.zero,
+                              );
+                            }),
+                          ),
+                        ),
+
                       ],
                     ),
                   ),
@@ -169,9 +233,9 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
                 color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0,-2))]
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0,-2))]
             ),
             child: SizedBox(
               width: double.infinity,
@@ -181,6 +245,7 @@ class _ExamenCursoScreenState extends State<ExamenCursoScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFFD143),
                   foregroundColor: Colors.black,
+                  elevation: 0,
                 ),
                 child: const Text('FINALIZAR Y CALIFICAR', style: TextStyle(fontWeight: FontWeight.bold)),
               ),

@@ -1,5 +1,5 @@
 class Curso {
-  // --- DATOS PÚBLICOS (Vitrina - Airtable) ---
+  // --- DATOS PÚBLICOS ---
   final String id;
   final String titulo;
   final String descripcionCorta;
@@ -7,21 +7,22 @@ class Curso {
   final double precioMXN;
   final String imagenPortadaUrl;
   final String videoTrailerUrl;
-  final String nombreInstructor; // Ahora almacenará el Código del Instructor
+  final String nombreInstructor;
   final String categoria;
   final double rating;
   final String estado;
 
-  // --- DATOS STORE (Dinámico) ---
-  final String? storeId; // Mapeado de "ID Producto Store" en Airtable
+  // --- DATOS STORE ---
+  final String? storeId;
 
   // --- DATOS DC-3 (Airtable) ---
   final int duracionHoras;
   final String areaTematicaClave;
   final String nombreAgenteCapacitador;
   final String registroAgenteSTPS;
+  final String emailInstructor; // ✅ ESTE ES EL CAMPO QUE FALTABA
 
-  // --- DATOS PRIVADOS (Firestore) ---
+  // --- DATOS PRIVADOS ---
   final List<Modulo>? temario;
   final bool comprado;
   final bool completado;
@@ -43,6 +44,7 @@ class Curso {
     this.areaTematicaClave = "6000",
     this.nombreAgenteCapacitador = "Safety App Capacitación",
     this.registroAgenteSTPS = "",
+    this.emailInstructor = "masterindustrialsafety@gmail.com", // Default
     this.temario,
     this.comprado = false,
     this.completado = false,
@@ -51,26 +53,21 @@ class Curso {
   factory Curso.fromAirtable(Map<String, dynamic> record) {
     final fields = record['fields'] ?? {};
 
-    // --- LÓGICA DE IMAGEN ---
     String portadaUrl = 'https://via.placeholder.com/300';
     if (fields['Imagen_Portada'] is List && fields['Imagen_Portada'].isNotEmpty) {
       portadaUrl = fields['Imagen_Portada'][0]['url'];
     }
 
-    // --- LÓGICA DE CÓDIGO INSTRUCTOR (Antes Instructor) ---
     var rawCodigo = fields['Codigo_Instructor'];
-    String codigoFinal = 'SAF-GEN'; // Valor por defecto si está vacío
-
+    String codigoFinal = 'SAF-GEN';
     if (rawCodigo is String && rawCodigo.isNotEmpty) {
       codigoFinal = rawCodigo;
     } else if (rawCodigo is List && rawCodigo.isNotEmpty) {
       codigoFinal = rawCodigo[0].toString();
     }
 
-    // --- LÓGICA DE AGENTE ---
     var rawAgente = fields['Nombre_Agente_Capacitador'];
     String agenteFinal = 'Safety App Capacitación';
-
     if (rawAgente is List && rawAgente.isNotEmpty) {
       agenteFinal = rawAgente[0].toString();
     } else if (rawAgente is String && rawAgente.isNotEmpty) {
@@ -82,27 +79,23 @@ class Curso {
       titulo: fields['Titulo'] ?? 'Curso sin título',
       descripcionCorta: fields['Descripcion_Corta'] ?? '',
       descripcionLarga: fields['Descripcion_Larga'] ?? '',
-
       precioMXN: (fields['Precio'] as num?)?.toDouble() ?? 0.0,
-
       imagenPortadaUrl: portadaUrl,
       videoTrailerUrl: fields['Video_Trailer'] ?? '',
-
       nombreInstructor: codigoFinal,
-
       categoria: fields['Categoria'] ?? 'General',
       rating: (fields['Rating'] as num?)?.toDouble() ?? 5.0,
       estado: fields['Estado'] ?? 'Borrador',
-
-      // ✅ MAPEO DINÁMICO DESDE AIRTABLE (Opción B)
       storeId: fields['ID Producto Store'] as String?,
 
       duracionHoras: (fields['Duracion_Horas'] as num?)?.toInt() ?? 4,
       areaTematicaClave: fields['Area_Tematica_Clave'] ?? '6000',
-
       nombreAgenteCapacitador: agenteFinal,
-
       registroAgenteSTPS: fields['Registro_Agente_STPS'] ?? '',
+
+      // ✅ MAPEAMOS EL EMAIL DESDE AIRTABLE (Asegúrate de que la columna se llame así en Airtable)
+      emailInstructor: fields['Email_Instructor'] as String? ?? 'masterindustrialsafety@gmail.com',
+
       comprado: false,
       completado: false,
       temario: null,
@@ -126,12 +119,12 @@ class Curso {
       categoria: categoria,
       rating: rating,
       estado: estado,
-      // Mantenemos el storeId original
       storeId: storeId,
       duracionHoras: duracionHoras,
       areaTematicaClave: areaTematicaClave,
       nombreAgenteCapacitador: nombreAgenteCapacitador,
       registroAgenteSTPS: registroAgenteSTPS,
+      emailInstructor: emailInstructor,
       temario: temario ?? this.temario,
       comprado: comprado ?? this.comprado,
       completado: completado ?? this.completado,

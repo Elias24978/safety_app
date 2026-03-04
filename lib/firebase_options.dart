@@ -17,24 +17,15 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -54,10 +45,46 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAmRsR1dY1s4_SHWYovgpR-hxdUodzjMHw',
-    appId: '1:868936144588:android:d92b40c5b5e808bd169469',
+    appId: '1:868936144588:android:0b3c9c031926ccce169469',
     messagingSenderId: '868936144588',
     projectId: 'safetymex-7d9c6',
     databaseURL: 'https://safetymex-7d9c6-default-rtdb.firebaseio.com',
     storageBucket: 'safetymex-7d9c6.firebasestorage.app',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAMvG587RZETw0p17PbEz-zlhNm00NvaX8',
+    appId: '1:868936144588:web:0f907a131de2dd38169469',
+    messagingSenderId: '868936144588',
+    projectId: 'safetymex-7d9c6',
+    authDomain: 'safetymex-7d9c6.firebaseapp.com',
+    databaseURL: 'https://safetymex-7d9c6-default-rtdb.firebaseio.com',
+    storageBucket: 'safetymex-7d9c6.firebasestorage.app',
+    measurementId: 'G-D7PH7GGZ1Q',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyCp4tvrniaz-W2IZvhi-2Sy9cp5AwfS8eg',
+    appId: '1:868936144588:ios:090b37fea5025460169469',
+    messagingSenderId: '868936144588',
+    projectId: 'safetymex-7d9c6',
+    databaseURL: 'https://safetymex-7d9c6-default-rtdb.firebaseio.com',
+    storageBucket: 'safetymex-7d9c6.firebasestorage.app',
+    androidClientId: '868936144588-3kp3u44n8v60h8gi4kq3k2q6tab9j2d9.apps.googleusercontent.com',
+    iosClientId: '868936144588-49n5ni0t55lfqfm6isdf9410pc49umtk.apps.googleusercontent.com',
+    iosBundleId: 'com.example.safetyAppNew',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCp4tvrniaz-W2IZvhi-2Sy9cp5AwfS8eg',
+    appId: '1:868936144588:ios:2e4fa3e4eed6ff51169469',
+    messagingSenderId: '868936144588',
+    projectId: 'safetymex-7d9c6',
+    databaseURL: 'https://safetymex-7d9c6-default-rtdb.firebaseio.com',
+    storageBucket: 'safetymex-7d9c6.firebasestorage.app',
+    androidClientId: '868936144588-3kp3u44n8v60h8gi4kq3k2q6tab9j2d9.apps.googleusercontent.com',
+    iosClientId: '868936144588-hk2i6lt79cs9scii5dc4hv2msgle5i3i.apps.googleusercontent.com',
+    iosBundleId: 'com.safetyapp.mobile',
+  );
+
 }

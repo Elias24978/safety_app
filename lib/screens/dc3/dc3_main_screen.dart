@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:safety_app/screens/dc3/dc3_form_screen.dart';
 import 'package:safety_app/screens/dc3/review_dc3_screen.dart';
 import 'package:safety_app/screens/dc3/upload_dc3_screen.dart';
+// IMPORTANTE: Importaremos la nueva pantalla que crearemos en el siguiente paso
+import 'package:safety_app/screens/dc3/validar_dc3_screen.dart';
 
 class Dc3MainScreen extends StatelessWidget {
   const Dc3MainScreen({super.key});
@@ -17,61 +19,82 @@ class Dc3MainScreen extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Gestión de Constancias',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Administra tus Constancias de Habilidades Laborales (DC-3).',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 32),
-            _buildOptionCard(
-              context,
-              // Novedad: Ícono para "crear" o "añadir" un nuevo documento.
-              icon: Icons.note_add_outlined,
-              title: 'Generador de DC-3',
-              subtitle: 'Crea y descarga una nueva constancia desde la app.',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DC3FormScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildOptionCard(
-              context,
-              // Se mantiene el ícono de "subir", que es muy claro.
-              icon: Icons.cloud_upload_outlined,
-              title: 'Subir Constancia Externa',
-              subtitle: 'Almacena de forma segura un nuevo certificado DC-3.',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const UploadDc3Screen()),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildOptionCard(
-              context,
-              // Novedad: Ícono que representa un "archivo" o "inventario" de documentos.
-              icon: Icons.inventory_2_outlined,
-              title: 'Mis Constancias',
-              subtitle: 'Consulta, valida y comparte todas tus DC-3.',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ReviewDc3Screen()),
-                );
-              },
-            ),
-          ],
+        child: SingleChildScrollView( // Añadido para evitar desbordamiento en pantallas pequeñas
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Gestión de Constancias',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Administra tus Constancias de Habilidades Laborales (DC-3).',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 32),
+
+              // 1. GENERADOR
+              _buildOptionCard(
+                context,
+                icon: Icons.note_add_outlined,
+                title: 'Generador de DC-3',
+                subtitle: 'Crea y descarga una nueva constancia desde la app.',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const DC3FormScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // 2. SUBIR EXTERNA
+              _buildOptionCard(
+                context,
+                icon: Icons.cloud_upload_outlined,
+                title: 'Subir Constancia Externa',
+                subtitle: 'Almacena de forma segura un nuevo certificado DC-3.',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const UploadDc3Screen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // 3. MIS CONSTANCIAS
+              _buildOptionCard(
+                context,
+                icon: Icons.inventory_2_outlined,
+                title: 'Mis Constancias',
+                subtitle: 'Consulta y comparte tus documentos subidos.',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ReviewDc3Screen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // 🚨 4. NUEVO BOTÓN: VALIDACIÓN DE FOLIOS
+              _buildOptionCard(
+                context,
+                icon: Icons.verified_user_outlined,
+                title: 'Validar DC-3 SafetyMex',
+                subtitle: 'Verifica la autenticidad de un certificado emitido por nosotros.',
+                iconColor: Colors.green, // Dándole un toque de color diferente para destacar seguridad
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ValidarDc3Screen()),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -83,6 +106,7 @@ class Dc3MainScreen extends StatelessWidget {
         required String title,
         required String subtitle,
         required VoidCallback onTap,
+        Color? iconColor,
       }) {
     return Card(
       elevation: 2,
@@ -94,7 +118,7 @@ class Dc3MainScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20.0),
           child: Row(
             children: [
-              Icon(icon, size: 40, color: Theme.of(context).primaryColor),
+              Icon(icon, size: 40, color: iconColor ?? Theme.of(context).primaryColor),
               const SizedBox(width: 20),
               Expanded(
                 child: Column(
@@ -115,8 +139,6 @@ class Dc3MainScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              // El ícono de flecha se mantiene igual en todas las tarjetas
-              // para indicar de forma consistente que son navegables.
               const Icon(Icons.arrow_forward_ios, color: Colors.grey),
             ],
           ),

@@ -1,77 +1,62 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 class CertificationService {
-  // TODO: Reemplazar con la URL final de tu Webhook de Google Apps Script (lo haremos en el Paso 4)
-  static const String _webhookUrl = 'https://script.google.com/macros/s/TU_SCRIPT_ID_AQUI/exec';
-
-  // TODO: Definir el token de seguridad. En producción usar variables de entorno.
-  static const String _apiToken = 'SAFETY_APP_SECURE_TOKEN_2024';
-
-  /// Envía una solicitud para generar el certificado DC-3.
-  ///
-  /// Retorna [true] si la solicitud fue aceptada por el backend (200 OK).
-  /// Lanza excepciones si algo falla para que la UI pueda mostrar un SnackBar o alerta.
   Future<bool> requestCertificate({
     required String studentName,
     required String curp,
     required String courseName,
-    required String folio, // ID único del examen aprobado
+    required String courseDuration,
+    required String instructorName,
+    required String instructorStps,
+    required String folio,
     required String instructorEmail,
     required String adminEmail,
+    required String occupation,
+    required String jobPosition,
+    required String studentEmail,
   }) async {
 
-    // 1. Preparar el Payload (Datos a enviar)
-    final Map<String, dynamic> data = {
+    // Empaquetamos los datos exactos que espera nuestro nuevo servidor
+    final Map<String, dynamic> payload = {
       'nombre': studentName,
       'curp': curp,
       'curso': courseName,
+      'duracion': courseDuration,
+      'instructor': instructorName,
+      'registro_stps': instructorStps,
       'folio': folio,
       'email_instructor': instructorEmail,
       'email_admin': adminEmail,
+      'email_alumno': studentEmail,
+      'ocupacion': occupation,
+      'puesto': jobPosition,
       'timestamp': DateTime.now().toIso8601String(),
     };
 
     try {
-      debugPrint('🚀 [CertificationService] Iniciando solicitud DC-3 para Folio: $folio');
+      debugPrint('🚀 Llamando a Firebase Cloud Functions (generarDC3) para folio: $folio');
 
-      // 2. Realizar la petición POST
-      final response = await http.post(
-        Uri.parse(_webhookUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiToken', // Header de seguridad crítico
-        },
-        body: jsonEncode(data),
-      ).timeout(const Duration(seconds: 30)); // Damos 30s de margen por si el Script está "dormido"
+      // 1. Llamamos a la función segura que acabamos de subir a la nube
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generarDC3');
 
-      // 3. Analizar la respuesta
-      debugPrint('📨 [CertificationService] Código de respuesta: ${response.statusCode}');
-      debugPrint('📄 [CertificationService] Cuerpo: ${response.body}');
+      // 2. Le enviamos los datos. Firebase inyectará automáticamente los secretos y hablará con Apps Script.
+      final result = await callable.call(payload);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Éxito: El webhook recibió los datos
-        // Opcional: Verificar si el body trae un "status": "success"
+      // 3. Revisamos si Firebase nos contestó con un "success: true"
+      if (result.data['success'] == true) {
         return true;
-      } else if (response.statusCode == 403) {
-        throw Exception('⛔ Acceso denegado: Token de seguridad inválido.');
-      } else if (response.statusCode >= 500) {
-        throw Exception('🔥 Error del servidor (Google): Intenta más tarde.');
-      } else {
-        throw Exception('⚠️ Error desconocido: ${response.statusCode}');
       }
+      return false;
 
-    } on SocketException {
-      debugPrint('❌ [CertificationService] Sin conexión a internet.');
-      throw Exception('No hay conexión a internet. Verifica tu red.');
-    } on http.ClientException catch (e) {
-      debugPrint('❌ [CertificationService] Error de cliente HTTP: $e');
-      throw Exception('Error de comunicación con el servidor.');
+    } on FirebaseFunctionsException catch (e) {
+      // Este error viene directo desde nuestro servidor Node.js
+      debugPrint('❌ Error de Firebase: ${e.code} - ${e.message}');
+      throw Exception(e.message ?? 'Fallo de seguridad o error interno en el servidor.');
     } catch (e) {
-      debugPrint('❌ [CertificationService] Excepción no controlada: $e');
-      rethrow;
+      // Error local (ej. el celular no tiene internet)
+      debugPrint('❌ Error local: $e');
+      throw Exception('Comprueba tu conexión a internet e intenta de nuevo.');
     }
   }
 }
